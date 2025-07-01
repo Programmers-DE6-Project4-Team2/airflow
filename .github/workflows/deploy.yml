@@ -1,4 +1,4 @@
-  name: Deploy Airflow to GCP VM
+ name: Deploy Airflow to GCP VM
 
   on:
     push:
@@ -11,19 +11,22 @@
       runs-on: ubuntu-latest
 
       steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Setup Google Cloud CLI
-        uses: google-github-actions/setup-gcloud@v1
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-          project_id: de6-2ez
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Deploy to VM
         run: |
           # SSH into VM and update deployment
           gcloud compute ssh ubuntu@airflow-vm \
             --zone=asia-northeast3-a \
+            --project=de6-2ez \
             --command="
               cd /opt/airflow && \
               git pull origin main && \
@@ -36,6 +39,7 @@
         run: |
           VM_IP=$(gcloud compute instances describe airflow-vm \
             --zone=asia-northeast3-a \
+            --project=de6-2ez \
             --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
 
           # Wait for services to be ready
