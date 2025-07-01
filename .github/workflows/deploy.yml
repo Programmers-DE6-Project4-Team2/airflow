@@ -18,11 +18,16 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: de6-2ez
           
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: de6-2ez
+        
+      - name: Verify authentication
+        run: |
+          gcloud auth list
+          gcloud config list project
+          echo "✅ Authentication successful"
           
       - name: Configure SSH key
         run: |
@@ -46,8 +51,20 @@ jobs:
               --zone=asia-northeast3-a \
               --project=de6-2ez
             
-            # VM 시작 대기
-            sleep 30
+            # VM 시작 확인 (polling)
+            echo "Waiting for VM to be ready..."
+            for i in {1..12}; do
+              STATUS=$(gcloud compute instances describe airflow-vm \
+                --zone=asia-northeast3-a \
+                --project=de6-2ez \
+                --format='get(status)')
+              if [ "$STATUS" = "RUNNING" ]; then
+                echo "✅ VM is now running"
+                break
+              fi
+              echo "⏳ VM starting... ($i/12)"
+              sleep 5
+            done
           fi
           
           # SSH로 VM에 접속하여 배포 실행
@@ -79,14 +96,20 @@ jobs:
               # 서비스 시작
               docker-compose up -d
               
+              # 컨테이너 시작 확인
+              echo '⏳ Waiting for containers to start...'
+              for i in {1..6}; do
+                if docker-compose ps | grep -q 'Up'; then
+                  echo '✅ Containers are starting up'
+                  break
+                fi
+                echo 'Waiting for containers... (\$i/6)'
+                sleep 5
+              done
+              
               echo '✅ Docker services started successfully'
             "
             
-      - name: Wait for services to start
-        run: |
-          echo "⏳ Waiting for services to initialize..."
-          sleep 90
-          
       - name: Health Check
         run: |
           # VM의 외부 IP 주소 가져오기
@@ -97,20 +120,20 @@ jobs:
           
           echo "VM External IP: $VM_IP"
           
-          # Airflow 웹서버 헬스체크
+          # Airflow 웹서버 헬스체크 (더 빠른 간격으로)
           echo "🔍 Checking Airflow webserver health..."
           
-          # 최대 5분간 헬스체크 시도
-          for i in {1..10}; do
-            if curl -f -s "http://$VM_IP:8080/health" > /dev/null 2>&1; then
+          # 최대 3분간 헬스체크 (10초 간격)
+          for i in {1..18}; do
+            if curl -f -s --connect-timeout 5 "http://$VM_IP:8080/health" > /dev/null 2>&1; then
               echo "✅ Airflow webserver is healthy!"
               echo "🎉 Deployment successful!"
               echo "🌐 Airflow UI: http://$VM_IP:8080"
               echo "👤 Default login: airflow / airflow"
               exit 0
             else
-              echo "⏳ Attempt $i/10: Airflow not ready yet, waiting 30s..."
-              sleep 30
+              echo "⏳ Attempt $i/18: Airflow not ready yet, waiting 10s..."
+              sleep 10
             fi
           done
           
@@ -145,3 +168,4 @@ jobs:
               
               echo '=== Airflow Scheduler Logs ==='
               docker-compose logs --tail=50 airflow-scheduler
+            " || true
