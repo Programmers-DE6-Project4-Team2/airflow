@@ -1,0 +1,47 @@
+  name: Deploy Airflow to GCP VM
+
+  on:
+    push:
+      branches: [ main ]
+    pull_request:
+      branches: [ main ]
+
+  jobs:
+    deploy:
+      runs-on: ubuntu-latest
+
+      steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: de6-2ez
+
+      - name: Deploy to VM
+        run: |
+          # SSH into VM and update deployment
+          gcloud compute ssh ubuntu@airflow-vm \
+            --zone=asia-northeast3-a \
+            --command="
+              cd /opt/airflow && \
+              git pull origin main && \
+              docker-compose down && \
+              docker-compose pull && \
+              docker-compose up -d
+            "
+
+      - name: Health Check
+        run: |
+          VM_IP=$(gcloud compute instances describe airflow-vm \
+            --zone=asia-northeast3-a \
+            --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+
+          # Wait for services to be ready
+          sleep 60
+
+          # Check if Airflow webserver is responding
+          curl -f http://$VM_IP:8080/health || exit 1
+
+          echo "🎉 Deployment successful! Airflow UI: http://$VM_IP:8080"
