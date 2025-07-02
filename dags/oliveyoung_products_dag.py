@@ -45,6 +45,20 @@ PROJECT_ID = "de6-2ez"
 REGION = "asia-northeast3"
 CLOUD_RUN_JOB_NAME = "oliveyoung-product-scraper"
 
+def create_safe_task_id(category_name: str) -> str:
+    """카테고리 이름을 Airflow task_id에 사용 가능한 형태로 변환"""
+    # 카테고리 이름을 영문으로 매핑
+    category_mapping = {
+        "스킨케어_스킨/토너": "skincare_skin_toner",
+        "스킨케어_에센스/세럼/앰플": "skincare_essence_serum_ampoule", 
+        "스킨케어_크림": "skincare_cream",
+        "스킨케어_로션": "skincare_lotion",
+        "스킨케어_미스트/오일": "skincare_mist_oil",
+        "스킨케어_스킨케어세트": "skincare_sets"
+    }
+    
+    return category_mapping.get(category_name, category_name.replace('/', '_').replace(' ', '_'))
+
 def create_scraping_tasks(**context) -> List[Dict]:
     """각 카테고리별 크롤링 작업 생성"""
     tasks = []
@@ -183,7 +197,7 @@ def validate_scraping_results(**context):
     failed_categories = []
     
     for category_name in OLIVEYOUNG_CATEGORIES.keys():
-        task_id = f"scrape_category_{category_name.replace('_', '__')}"
+        task_id = f"scrape_category_{create_safe_task_id(category_name)}"
         try:
             result = ti.xcom_pull(task_ids=task_id)
             if result and result.get('status') == 'completed':
@@ -257,7 +271,7 @@ scraping_tasks = []
 
 for category_name, category_url in OLIVEYOUNG_CATEGORIES.items():
     # 태스크 ID에 사용할 안전한 이름 생성
-    safe_category_name = category_name.replace('_', '__')
+    safe_category_name = create_safe_task_id(category_name)
     
     scraping_task = PythonOperator(
         task_id=f'scrape_category_{safe_category_name}',
