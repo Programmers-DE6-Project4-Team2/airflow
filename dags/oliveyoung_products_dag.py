@@ -282,7 +282,7 @@ for category_name, category_url in OLIVEYOUNG_CATEGORIES.items():
             'max_pages': 5,
         },
         dag=dag,
-        pool='scraping_pool',  # 동시 실행 제한을 위한 풀
+        pool='default_pool',  # 기본 풀 사용
     )
     
     scraping_tasks.append(scraping_task)
