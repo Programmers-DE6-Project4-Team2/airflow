@@ -11,11 +11,7 @@ from typing import Dict, List
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
-from airflow.providers.google.cloud.operators.cloud_run import (
-    CloudRunCreateJobOperator,
-    CloudRunExecuteJobOperator
-)
-from airflow.providers.google.cloud.sensors.cloud_run import CloudRunJobSensor
+# Google Cloud providers - not needed for manual Cloud Run deployment
 from airflow.models import Variable
 from airflow.utils.dates import days_ago
 
