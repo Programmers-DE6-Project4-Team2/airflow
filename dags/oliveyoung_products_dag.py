@@ -282,6 +282,7 @@ for category_name, category_info in OLIVEYOUNG_CATEGORIES.items():
         dag=dag,
         pool='default_pool',  # 기본 풀 사용
         execution_timeout=timedelta(minutes=60),  # 개별 태스크 타임아웃
+
     )
     
     scraping_tasks.append(scraping_task)
