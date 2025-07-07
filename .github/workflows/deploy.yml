@@ -1,4 +1,4 @@
-name: Deploy Airflow to GCP VM
+name: Deploy Airflow DAGs to Cloud Composer
 
 on:
   push:
@@ -32,138 +32,98 @@ jobs:
           # SSH 키 설정 (GCP 메타데이터에서 관리되는 경우 생략 가능)
           echo "SSH key configuration completed"
           
-      - name: Deploy to VM
+      - name: Deploy to Composer
         run: |
-          # VM 인스턴스가 실행 중인지 확인
-          gcloud compute instances describe airflow-vm \
-            --zone=asia-northeast3-a \
-            --project=de6-2ez \
-            --format='get(status)' > vm_status.txt
+          # Composer 환경 정보
+          COMPOSER_ENVIRONMENT_NAME="de6-2ez-composer"
+          COMPOSER_LOCATION="asia-northeast3"
           
-          VM_STATUS=$(cat vm_status.txt)
-          echo "VM Status: $VM_STATUS"
+          echo "🚀 Deploying DAGs to Cloud Composer..."
           
-          if [ "$VM_STATUS" != "RUNNING" ]; then
-            echo "Starting VM instance..."
-            gcloud compute instances start airflow-vm \
-              --zone=asia-northeast3-a \
+          # DAG 파일들을 Composer 환경에 업로드
+          echo "📦 Uploading DAG files to Composer..."
+          gcloud composer environments storage dags import \
+            --environment="$COMPOSER_ENVIRONMENT_NAME" \
+            --location="$COMPOSER_LOCATION" \
+            --source="dags/oliveyoung_products_dag.py" \
+            --project=de6-2ez
+          
+          gcloud composer environments storage dags import \
+            --environment="$COMPOSER_ENVIRONMENT_NAME" \
+            --location="$COMPOSER_LOCATION" \
+            --source="dags/oliveyoung_reviews_dag.py" \
+            --project=de6-2ez
+          
+          # Common 모듈이 있다면 업로드
+          if [ -d "common" ]; then
+            echo "📦 Uploading common modules..."
+            gcloud composer environments storage data import \
+              --environment="$COMPOSER_ENVIRONMENT_NAME" \
+              --location="$COMPOSER_LOCATION" \
+              --source="common/" \
+              --destination="common/" \
               --project=de6-2ez
-            
-            # VM 시작 확인 (polling)
-            echo "Waiting for VM to be ready..."
-            for i in {1..12}; do
-              STATUS=$(gcloud compute instances describe airflow-vm \
-                --zone=asia-northeast3-a \
-                --project=de6-2ez \
-                --format='get(status)')
-              if [ "$STATUS" = "RUNNING" ]; then
-                echo "✅ VM is now running"
-                break
-              fi
-              echo "⏳ VM starting... ($i/12)"
-              sleep 5
-            done
           fi
           
-          # SSH로 VM에 접속하여 배포 실행
-          gcloud compute ssh ubuntu@airflow-vm \
-            --zone=asia-northeast3-a \
-            --project=de6-2ez \
-            --ssh-flag="-o StrictHostKeyChecking=no" \
-            --command="
-              set -e
-              echo '🚀 Starting deployment process...'
-              
-              # 작업 디렉토리로 이동
-              cd /opt/airflow || { echo 'Directory /opt/airflow not found'; exit 1; }
-              
-              # Git 저장소 업데이트
-              echo '📦 Updating code from Git...'
-              git fetch origin
-              git reset --hard origin/main
-              
-              # Docker Compose 서비스 재시작
-              echo '🔄 Restarting Docker services...'
-              docker-compose down
-              docker-compose pull
-              
-              # 환경 변수 설정 (필요한 경우)
-              export AIRFLOW_UID=\$(id -u)
-              export AIRFLOW_GID=0
-              
-              # 서비스 시작
-              docker-compose up -d
-              
-              # 컨테이너 시작 확인
-              echo '⏳ Waiting for containers to start...'
-              for i in {1..6}; do
-                if docker-compose ps | grep -q 'Up'; then
-                  echo '✅ Containers are starting up'
-                  break
-                fi
-                echo 'Waiting for containers... (\$i/6)'
-                sleep 5
-              done
-              
-              echo '✅ Docker services started successfully'
-            "
+          echo "✅ DAG files uploaded successfully"
             
       - name: Health Check
         run: |
-          # VM의 외부 IP 주소 가져오기
-          VM_IP=$(gcloud compute instances describe airflow-vm \
-            --zone=asia-northeast3-a \
+          # Composer 환경 정보
+          COMPOSER_ENVIRONMENT_NAME="de6-2ez-composer"
+          COMPOSER_LOCATION="asia-northeast3"
+          
+          echo "🔍 Checking Composer environment health..."
+          
+          # Composer 환경 상태 확인
+          ENV_STATE=$(gcloud composer environments describe "$COMPOSER_ENVIRONMENT_NAME" \
+            --location="$COMPOSER_LOCATION" \
             --project=de6-2ez \
-            --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+            --format='get(state)')
           
-          echo "VM External IP: $VM_IP"
+          echo "Composer Environment State: $ENV_STATE"
           
-          # Airflow 웹서버 헬스체크 (더 빠른 간격으로)
-          echo "🔍 Checking Airflow webserver health..."
-          
-          # 최대 3분간 헬스체크 (10초 간격)
-          for i in {1..18}; do
-            if curl -f -s --connect-timeout 5 "http://$VM_IP:8080/health" > /dev/null 2>&1; then
-              echo "✅ Airflow webserver is healthy!"
-              echo "🎉 Deployment successful!"
-              echo "🌐 Airflow UI: http://$VM_IP:8080"
-              echo "👤 Default login: airflow / airflow"
-              exit 0
-            else
-              echo "⏳ Attempt $i/18: Airflow not ready yet, waiting 10s..."
-              sleep 10
-            fi
-          done
-          
-          echo "❌ Health check failed - Airflow webserver not responding"
-          echo "🔍 Checking container status..."
-          
-          # 컨테이너 상태 확인
-          gcloud compute ssh ubuntu@airflow-vm \
-            --zone=asia-northeast3-a \
-            --project=de6-2ez \
-            --ssh-flag="-o StrictHostKeyChecking=no" \
-            --command="docker-compose ps"
-          
-          exit 1
+          if [ "$ENV_STATE" = "RUNNING" ]; then
+            echo "✅ Composer environment is healthy!"
+            echo "🎉 Deployment successful!"
+            
+            # Composer 웹서버 URL 가져오기
+            AIRFLOW_URI=$(gcloud composer environments describe "$COMPOSER_ENVIRONMENT_NAME" \
+              --location="$COMPOSER_LOCATION" \
+              --project=de6-2ez \
+              --format='get(config.airflowUri)')
+            
+            echo "🌐 Airflow UI: $AIRFLOW_URI"
+            echo "👤 Use your Google account to login"
+            
+            # DAG 상태 확인
+            echo "📊 Checking DAG status..."
+            gcloud composer environments run "$COMPOSER_ENVIRONMENT_NAME" \
+              --location="$COMPOSER_LOCATION" \
+              --project=de6-2ez \
+              dags list || true
+          else
+            echo "❌ Composer environment is not running: $ENV_STATE"
+            exit 1
+          fi
           
       - name: Cleanup on failure
         if: failure()
         run: |
-          echo "🧹 Deployment failed, checking logs..."
+          echo "🧹 Deployment failed, checking Composer environment..."
           
-          # 실패 시 로그 확인
-          gcloud compute ssh ubuntu@airflow-vm \
-            --zone=asia-northeast3-a \
+          # Composer 환경 상태 확인
+          COMPOSER_ENVIRONMENT_NAME="de6-2ez-composer"
+          COMPOSER_LOCATION="asia-northeast3"
+          
+          echo "=== Composer Environment Status ==="
+          gcloud composer environments describe "$COMPOSER_ENVIRONMENT_NAME" \
+            --location="$COMPOSER_LOCATION" \
             --project=de6-2ez \
-            --ssh-flag="-o StrictHostKeyChecking=no" \
-            --command="
-              echo '=== Docker Compose Status ==='
-              docker-compose ps
-              
-              echo '=== Airflow Webserver Logs ==='
-              docker-compose logs --tail=50 airflow-webserver
-              
-              echo '=== Airflow Scheduler Logs ==='
-              docker-compose logs --tail=50 airflow-scheduler
-            " || true
+            --format='table(state,createTime,updateTime)' || true
+          
+          echo "=== Recent Operations ==="
+          gcloud composer operations list \
+            --locations="$COMPOSER_LOCATION" \
+            --project=de6-2ez \
+            --limit=5 || true

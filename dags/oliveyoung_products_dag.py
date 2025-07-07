@@ -13,7 +13,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 from airflow.models import Variable
-from airflow.utils.dates import days_ago
+import pendulum
 
 # Common 모듈 경로 추가
 sys.path.append('/opt/airflow/common')
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 default_args = {
     'owner': 'dawit0905@gmail.com',
     'depends_on_past': False,
-    'start_date': days_ago(1),
+    'start_date': pendulum.now('UTC').subtract(days=1),
     'email_on_failure': True,
     'email_on_retry': False,
     'retries': 2,
@@ -43,7 +43,11 @@ default_args = {
 PROJECT_ID = "de6-2ez"
 REGION = "asia-northeast3"
 CLOUD_RUN_SERVICE_NAME = "oliveyoung-product-scraper"
-GCS_BUCKET_NAME = f"{PROJECT_ID}-raw-data"
+GCS_BUCKET_NAME = f"{PROJECT_ID}"
+
+# Cloud Run 서비스 URL (Terraform으로 배포된 서비스)
+# 기존 서비스를 활용하거나 Terraform output에서 가져올 수 있음
+CLOUD_RUN_SERVICE_URL = "https://oliveyoung-product-scraper-rlvf5tevza-du.a.run.app"
 
 def create_scraping_tasks(**context) -> List[Dict]:
     """각 카테고리별 크롤링 작업 생성"""
@@ -65,15 +69,13 @@ def create_scraping_tasks(**context) -> List[Dict]:
 def execute_category_scraping(category_name: str, category_url: str, max_pages: int = 5, **context):
     """개별 카테고리 크롤링 실행"""
     
-    # Cloud Run 서비스 URL
-    cloud_run_url = f"https://{CLOUD_RUN_SERVICE_NAME}-{REGION}.run.app"
-    
     try:
         logger.info(f"카테고리 크롤링 시작: {category_name}")
         logger.info(f"최대 페이지: {max_pages}")
+        logger.info(f"Cloud Run 서비스 URL: {CLOUD_RUN_SERVICE_URL}")
         
         # Cloud Run 클라이언트 생성
-        client = create_cloud_run_client(cloud_run_url)
+        client = create_cloud_run_client(CLOUD_RUN_SERVICE_URL)
         
         # 크롤링 실행
         result = client.scrape_category(
@@ -101,78 +103,37 @@ def execute_category_scraping(category_name: str, category_url: str, max_pages: 
         if 'client' in locals():
             client.close()
 
-def deploy_product_scraper(**context):
-    """상품 크롤러 Cloud Run 서비스 배포"""
-    import subprocess
-    
+def check_cloud_run_service(**context):
+    """Cloud Run 서비스 상태 확인"""
     try:
-        logger.info("📦 올리브영 크롤러 Cloud Run 서비스 배포 시작...")
+        logger.info(f"Cloud Run 서비스 헬스 체크: {CLOUD_RUN_SERVICE_URL}")
         
-        # 소스 코드 디렉토리 경로
-        source_dir = "/opt/airflow/scripts/cloud_run/oliveyoung_scraper"
-        docker_repo = f"{REGION}-docker.pkg.dev/{PROJECT_ID}/oliveyoung-scrapers"
+        # Cloud Run 클라이언트 생성
+        client = create_cloud_run_client(CLOUD_RUN_SERVICE_URL)
         
-        # 1. Docker 이미지 빌드
-        logger.info("🔨 Docker 이미지 빌드 중...")
-        build_cmd = [
-            'gcloud', 'builds', 'submit',
-            '--tag', f'{docker_repo}/oliveyoung-scraper:latest',
-            '--project', PROJECT_ID,
-            '--timeout', '20m',
-            source_dir
-        ]
+        # 헬스 체크 실행
+        health_result = client.health_check()
         
-        result = subprocess.run(build_cmd, capture_output=True, text=True, check=True)
-        logger.info("✅ Docker 이미지 빌드 완료")
-        
-        # 2. Cloud Run 서비스 배포
-        logger.info("🚢 Cloud Run 서비스 배포 중...")
-        deploy_cmd = [
-            'gcloud', 'run', 'deploy', CLOUD_RUN_SERVICE_NAME,
-            '--image', f'{docker_repo}/oliveyoung-scraper:latest',
-            '--platform', 'managed',
-            '--region', REGION,
-            '--project', PROJECT_ID,
-            '--memory', '4Gi',
-            '--cpu', '2',
-            '--timeout', '3600',
-            '--max-instances', '10',
-            '--set-env-vars', f'PROJECT_ID={PROJECT_ID},GCS_BUCKET={GCS_BUCKET_NAME}',
-            '--service-account', f'dataproc-serverless-sa@{PROJECT_ID}.iam.gserviceaccount.com',
-            '--allow-unauthenticated',
-            '--quiet'
-        ]
-        
-        result = subprocess.run(deploy_cmd, capture_output=True, text=True, check=True)
-        logger.info("✅ 올리브영 크롤러 Cloud Run 서비스 배포 완료")
-        
-        # 3. 서비스 URL 확인
-        url_cmd = [
-            'gcloud', 'run', 'services', 'describe', CLOUD_RUN_SERVICE_NAME,
-            '--region', REGION,
-            '--project', PROJECT_ID,
-            '--format', 'value(status.url)'
-        ]
-        
-        result = subprocess.run(url_cmd, capture_output=True, text=True, check=True)
-        service_url = result.stdout.strip()
-        logger.info(f"📊 서비스 URL: {service_url}")
-        
-        return {
-            'status': 'success',
-            'service_url': service_url,
-            'service_name': CLOUD_RUN_SERVICE_NAME,
-            'deployed_at': datetime.now().isoformat()
-        }
-        
-    except subprocess.CalledProcessError as e:
-        error_msg = f"배포 실패: {e.stderr if e.stderr else str(e)}"
-        logger.error(error_msg)
-        raise Exception(error_msg)
+        if health_result['status'] == 'healthy':
+            logger.info("✅ Cloud Run 서비스가 정상 작동 중입니다")
+            return {
+                'status': 'healthy',
+                'service_url': CLOUD_RUN_SERVICE_URL,
+                'version': health_result.get('version', 'unknown'),
+                'checked_at': datetime.now().isoformat()
+            }
+        else:
+            error_msg = f"❌ Cloud Run 서비스 상태 불량: {health_result.get('error_message', '')}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+            
     except Exception as e:
-        error_msg = f"배포 중 오류 발생: {str(e)}"
-        logger.error(error_msg)
-        raise Exception(error_msg)
+        logger.error(f"헬스 체크 실패: {str(e)}")
+        raise
+    finally:
+        # 클라이언트 정리
+        if 'client' in locals():
+            client.close()
 
 def validate_scraping_results(**context):
     """크롤링 결과 검증 및 요약"""
@@ -242,18 +203,18 @@ def validate_scraping_results(**context):
 dag = DAG(
     'oliveyoung_products_collection',
     default_args=default_args,
-    description='올리브영 상품 크롤러 배포 및 데이터 수집',
+    description='올리브영 상품 데이터 수집',
     schedule_interval=None,  # 수동 실행만
     catchup=False,
     max_active_runs=1,
-    tags=['oliveyoung', 'products', 'scraping', 'deployment', 'manual'],
+    tags=['oliveyoung', 'products', 'scraping', 'manual'],
 )
 
-# Cloud Run 서비스 배포 태스크
-deploy_service = PythonOperator(
-    task_id='deploy_product_scraper_service',
-    python_callable=deploy_product_scraper,
-    execution_timeout=timedelta(minutes=30),
+# Cloud Run 서비스 헬스 체크 태스크
+health_check_service = PythonOperator(
+    task_id='check_cloud_run_service',
+    python_callable=check_cloud_run_service,
+    execution_timeout=timedelta(minutes=5),
     dag=dag,
 )
 
@@ -280,7 +241,7 @@ for category_name, category_info in OLIVEYOUNG_CATEGORIES.items():
             'max_pages': category_info.get('max_pages', 5),
         },
         dag=dag,
-        pool='default_pool',  # 기본 풀 사용
+        # pool='default_pool',  # 기본 풀 사용 - Composer 환경에서 확인 필요
         execution_timeout=timedelta(minutes=60),  # 개별 태스크 타임아웃
 
     )
@@ -310,12 +271,12 @@ completion_notification = BashOperator(
 )
 
 # 태스크 의존성 설정
-# 1. 먼저 Cloud Run 서비스 배포
-# 2. 배포 완료 후 크롤링 작업 생성
+# 1. 먼저 Cloud Run 서비스 헬스 체크
+# 2. 헬스 체크 완료 후 크롤링 작업 생성
 # 3. 각 카테고리별 크롤링 병렬 실행
 # 4. 결과 검증 및 완료 알림
 
-deploy_service >> create_tasks >> scraping_tasks >> validate_results >> completion_notification
+health_check_service >> create_tasks >> scraping_tasks >> validate_results >> completion_notification
 
 # 병렬 실행을 위한 설정
 for task in scraping_tasks:
