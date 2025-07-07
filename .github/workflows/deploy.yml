@@ -16,7 +16,7 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-          project_id: de6-2ez
+          project_id: ${{ vars.PROJECT_ID || 'de6-2ez' }}
           
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -35,8 +35,9 @@ jobs:
       - name: Deploy to Composer
         run: |
           # Composer 환경 정보
-          COMPOSER_ENVIRONMENT_NAME="de6-2ez-composer"
-          COMPOSER_LOCATION="asia-northeast3"
+          COMPOSER_ENVIRONMENT_NAME="${{ vars.COMPOSER_ENVIRONMENT_NAME || 'de6-2ez-airflow' }}"
+          COMPOSER_LOCATION="${{ vars.COMPOSER_LOCATION || 'asia-northeast3' }}"
+          PROJECT_ID="${{ vars.PROJECT_ID || 'de6-2ez' }}"
           
           echo "🚀 Deploying DAGs to Cloud Composer..."
           
@@ -46,13 +47,13 @@ jobs:
             --environment="$COMPOSER_ENVIRONMENT_NAME" \
             --location="$COMPOSER_LOCATION" \
             --source="dags/oliveyoung_products_dag.py" \
-            --project=de6-2ez
+            --project="$PROJECT_ID"
           
           gcloud composer environments storage dags import \
             --environment="$COMPOSER_ENVIRONMENT_NAME" \
             --location="$COMPOSER_LOCATION" \
             --source="dags/oliveyoung_reviews_dag.py" \
-            --project=de6-2ez
+            --project="$PROJECT_ID"
           
           # Common 모듈이 있다면 업로드
           if [ -d "common" ]; then
@@ -62,7 +63,7 @@ jobs:
               --location="$COMPOSER_LOCATION" \
               --source="common/" \
               --destination="common/" \
-              --project=de6-2ez
+              --project="$PROJECT_ID"
           fi
           
           echo "✅ DAG files uploaded successfully"
@@ -70,15 +71,16 @@ jobs:
       - name: Health Check
         run: |
           # Composer 환경 정보
-          COMPOSER_ENVIRONMENT_NAME="de6-2ez-composer"
-          COMPOSER_LOCATION="asia-northeast3"
+          COMPOSER_ENVIRONMENT_NAME="${{ vars.COMPOSER_ENVIRONMENT_NAME || 'de6-2ez-airflow' }}"
+          COMPOSER_LOCATION="${{ vars.COMPOSER_LOCATION || 'asia-northeast3' }}"
+          PROJECT_ID="${{ vars.PROJECT_ID || 'de6-2ez' }}"
           
           echo "🔍 Checking Composer environment health..."
           
           # Composer 환경 상태 확인
           ENV_STATE=$(gcloud composer environments describe "$COMPOSER_ENVIRONMENT_NAME" \
             --location="$COMPOSER_LOCATION" \
-            --project=de6-2ez \
+            --project="$PROJECT_ID" \
             --format='get(state)')
           
           echo "Composer Environment State: $ENV_STATE"
@@ -90,7 +92,7 @@ jobs:
             # Composer 웹서버 URL 가져오기
             AIRFLOW_URI=$(gcloud composer environments describe "$COMPOSER_ENVIRONMENT_NAME" \
               --location="$COMPOSER_LOCATION" \
-              --project=de6-2ez \
+              --project="$PROJECT_ID" \
               --format='get(config.airflowUri)')
             
             echo "🌐 Airflow UI: $AIRFLOW_URI"
@@ -100,7 +102,7 @@ jobs:
             echo "📊 Checking DAG status..."
             gcloud composer environments run "$COMPOSER_ENVIRONMENT_NAME" \
               --location="$COMPOSER_LOCATION" \
-              --project=de6-2ez \
+              --project="$PROJECT_ID" \
               dags list || true
           else
             echo "❌ Composer environment is not running: $ENV_STATE"
@@ -113,17 +115,18 @@ jobs:
           echo "🧹 Deployment failed, checking Composer environment..."
           
           # Composer 환경 상태 확인
-          COMPOSER_ENVIRONMENT_NAME="de6-2ez-composer"
-          COMPOSER_LOCATION="asia-northeast3"
+          COMPOSER_ENVIRONMENT_NAME="${{ vars.COMPOSER_ENVIRONMENT_NAME || 'de6-2ez-airflow' }}"
+          COMPOSER_LOCATION="${{ vars.COMPOSER_LOCATION || 'asia-northeast3' }}"
+          PROJECT_ID="${{ vars.PROJECT_ID || 'de6-2ez' }}"
           
           echo "=== Composer Environment Status ==="
           gcloud composer environments describe "$COMPOSER_ENVIRONMENT_NAME" \
             --location="$COMPOSER_LOCATION" \
-            --project=de6-2ez \
+            --project="$PROJECT_ID" \
             --format='table(state,createTime,updateTime)' || true
           
           echo "=== Recent Operations ==="
           gcloud composer operations list \
             --locations="$COMPOSER_LOCATION" \
-            --project=de6-2ez \
+            --project="$PROJECT_ID" \
             --limit=5 || true
