@@ -43,17 +43,22 @@ jobs:
           
           # DAG 파일들을 Composer 환경에 업로드
           echo "📦 Uploading DAG files to Composer..."
-          gcloud composer environments storage dags import \
-            --environment="$COMPOSER_ENVIRONMENT_NAME" \
-            --location="$COMPOSER_LOCATION" \
-            --source="dags/oliveyoung_products_dag.py" \
-            --project="$PROJECT_ID"
           
-          gcloud composer environments storage dags import \
-            --environment="$COMPOSER_ENVIRONMENT_NAME" \
-            --location="$COMPOSER_LOCATION" \
-            --source="dags/oliveyoung_reviews_dag.py" \
-            --project="$PROJECT_ID"
+          # dags/ 디렉토리에 .py 파일이 있는지 확인
+          if ls dags/*.py 1> /dev/null 2>&1; then
+            for dag_file in dags/*.py; do
+              if [ -f "$dag_file" ]; then
+                echo "Uploading $dag_file..."
+                gcloud composer environments storage dags import \
+                  --environment="$COMPOSER_ENVIRONMENT_NAME" \
+                  --location="$COMPOSER_LOCATION" \
+                  --source="$dag_file" \
+                  --project="$PROJECT_ID"
+              fi
+            done
+          else
+            echo "No DAG files found in dags/ directory"
+          fi
           
           
           echo "✅ DAG files uploaded successfully"
