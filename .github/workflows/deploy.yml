@@ -55,16 +55,6 @@ jobs:
             --source="dags/oliveyoung_reviews_dag.py" \
             --project="$PROJECT_ID"
           
-          # Common 모듈이 있다면 업로드
-          if [ -d "common" ]; then
-            echo "📦 Uploading common modules..."
-            gcloud composer environments storage data import \
-              --environment="$COMPOSER_ENVIRONMENT_NAME" \
-              --location="$COMPOSER_LOCATION" \
-              --source="common/" \
-              --destination="common/" \
-              --project="$PROJECT_ID"
-          fi
           
           echo "✅ DAG files uploaded successfully"
             
