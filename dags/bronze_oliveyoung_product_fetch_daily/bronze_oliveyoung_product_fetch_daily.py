@@ -38,7 +38,8 @@ with DAG(
         region="asia-northeast3",
         job_name="oliveyoung-product-crawler-job",
         do_xcom_push=False,  # XCom 사용 안 함으로 DB 연결 문제 방지
-    ).task_concurrency(5).expand(
+        task_concurrency=5,
+    ).expand(
         overrides=[
             {
                 "container_overrides": [
