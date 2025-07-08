@@ -44,20 +44,24 @@ jobs:
           # DAG 파일들을 Composer 환경에 업로드
           echo "📦 Uploading DAG files to Composer..."
           
-          # dags/ 디렉토리에 .py 파일이 있는지 확인
-          if ls dags/*.py 1> /dev/null 2>&1; then
-            for dag_file in dags/*.py; do
-              if [ -f "$dag_file" ]; then
-                echo "Uploading $dag_file..."
-                gcloud composer environments storage dags import \
-                  --environment="$COMPOSER_ENVIRONMENT_NAME" \
-                  --location="$COMPOSER_LOCATION" \
-                  --source="$dag_file" \
-                  --project="$PROJECT_ID"
-              fi
-            done
+          # dags/ 디렉토리 전체를 업로드 (common 디렉토리 포함)
+          echo "Uploading entire dags/ directory..."
+          gcloud composer environments storage dags import \
+            --environment="$COMPOSER_ENVIRONMENT_NAME" \
+            --location="$COMPOSER_LOCATION" \
+            --source="dags/" \
+            --project="$PROJECT_ID"
+          
+          # requirements.txt 업로드 (PyPI 패키지 관리)
+          if [ -f "requirements.txt" ]; then
+            echo "📦 Uploading requirements.txt..."
+            gcloud composer environments update "$COMPOSER_ENVIRONMENT_NAME" \
+              --location="$COMPOSER_LOCATION" \
+              --update-pypi-packages-from-file="requirements.txt" \
+              --project="$PROJECT_ID"
+            echo "✅ Requirements updated successfully"
           else
-            echo "No DAG files found in dags/ directory"
+            echo "⚠️ No requirements.txt found, skipping package updates"
           fi
           
           
