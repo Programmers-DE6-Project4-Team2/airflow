@@ -19,9 +19,10 @@ CATEGORY_LIST = [
 with DAG(
     dag_id="bronze_oliveyoung_product_fetch_daily",
     schedule_interval="0 0 * * *",  # 매일 00:00 UTC → KST 오전 9시
-    start_date=pendulum.now('UTC').subtract(days=1),
+    start_date=pendulum.datetime(2025, 7, 1, tz="UTC"),
     catchup=False,
     tags=["oliveyoung", "cloud-run"],
+    max_active_tasks=10,
     default_args={
         'owner': 'dawit0905@gmail.com',
         "retries": 1,
@@ -37,7 +38,7 @@ with DAG(
         region="asia-northeast3",
         job_name="oliveyoung-product-crawler-job",
         do_xcom_push=False,  # XCom 사용 안 함으로 DB 연결 문제 방지
-    ).expand(
+    ).task_concurrency(5).expand(
         overrides=[
             {
                 "container_overrides": [
