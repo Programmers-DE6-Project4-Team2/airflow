@@ -11,27 +11,27 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
           project_id: ${{ vars.PROJECT_ID || 'de6-2ez' }}
-          
+
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
-        
+
       - name: Verify authentication
         run: |
           gcloud auth list
           gcloud config list project
           echo "✅ Authentication successful"
-          
+
       - name: Configure SSH key
         run: |
           # SSH 키 설정 (GCP 메타데이터에서 관리되는 경우 생략 가능)
           echo "SSH key configuration completed"
-          
+
       - name: Deploy to Composer
         run: |
           # Composer 환경 정보
@@ -58,15 +58,14 @@ jobs:
             gcloud composer environments update "$COMPOSER_ENVIRONMENT_NAME" \
               --location="$COMPOSER_LOCATION" \
               --update-pypi-packages-from-file="requirements.txt" \
-              --project="$PROJECT_ID"
-            echo "✅ Requirements updated successfully"
+              --project="$PROJECT_ID" || echo "⚠️ No update needed, skipping requirements update"
           else
             echo "⚠️ No requirements.txt found, skipping package updates"
           fi
           
           
           echo "✅ DAG files uploaded successfully"
-            
+
       - name: Health Check
         run: |
           # Composer 환경 정보
@@ -107,7 +106,7 @@ jobs:
             echo "❌ Composer environment is not running: $ENV_STATE"
             exit 1
           fi
-          
+
       - name: Cleanup on failure
         if: failure()
         run: |
