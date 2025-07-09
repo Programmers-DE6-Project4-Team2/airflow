@@ -22,7 +22,6 @@ with DAG(
     start_date=pendulum.datetime(2025, 7, 1, tz="UTC"),
     catchup=False,
     tags=["oliveyoung", "cloud-run"],
-    max_active_tasks=10,
     default_args={
         'owner': 'dawit0905@gmail.com',
         "retries": 1,
