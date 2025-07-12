@@ -2,10 +2,10 @@ name: Deploy Airflow DAGs to GCP Compute Machine
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'dags/**'
-      - 'requirements.txt'
+    branches: [ main ]
+#    paths:
+#      - 'dags/**'
+#      - 'requirements.txt'
 
 jobs:
   deploy:
