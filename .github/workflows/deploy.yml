@@ -1,130 +1,51 @@
-name: Deploy Airflow DAGs to Cloud Composer
+name: Deploy Airflow DAGs to GCP Compute Machine
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'dags/**'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout code
+      - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
+      - name: Authenticate to Google Cloud (optional)
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-          project_id: ${{ vars.PROJECT_ID || 'de6-2ez' }}
 
-      - name: Set up Cloud SDK
+      - name: Setup gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Verify authentication
+      - name: Verify gcloud auth (optional)
         run: |
           gcloud auth list
           gcloud config list project
-          echo "✅ Authentication successful"
+          echo "✅ gcloud authenticated"
 
-      - name: Configure SSH key
-        run: |
-          # SSH 키 설정 (GCP 메타데이터에서 관리되는 경우 생략 가능)
-          echo "SSH key configuration completed"
+      - name: Upload DAGs to GCE VM via SCP
+        uses: appleboy/scp-action@v0.1.3
+        with:
+          host: ${{ secrets.GCE_HOST }}
+          username: ${{ secrets.GCE_USER }}
+          key: ${{ secrets.GCE_SSH_KEY }}
+          source: "dags/"
+          target: "/home/${{ secrets.GCE_USER }}/airflow/dags/"
+          strip_components: 1
 
-      - name: Deploy to Composer
-        run: |
-          # Composer 환경 정보
-          COMPOSER_ENVIRONMENT_NAME="${{ vars.COMPOSER_ENVIRONMENT_NAME || 'de6-2ez-airflow' }}"
-          COMPOSER_LOCATION="${{ vars.COMPOSER_LOCATION || 'asia-northeast3' }}"
-          PROJECT_ID="${{ vars.PROJECT_ID || 'de6-2ez' }}"
-          
-          echo "🚀 Deploying DAGs to Cloud Composer..."
-          
-          # DAG 파일들을 Composer 환경에 업로드
-          echo "📦 Uploading DAG files to Composer..."
-          
-          # dags/ 디렉토리 전체를 업로드 (common 디렉토리 포함)
-          echo "Uploading entire dags/ directory..."
-          gcloud composer environments storage dags import \
-            --environment="$COMPOSER_ENVIRONMENT_NAME" \
-            --location="$COMPOSER_LOCATION" \
-            --source="dags/*" \
-            --project="$PROJECT_ID"
-          
-          # requirements.txt 업로드 (PyPI 패키지 관리)
-          if [ -f "requirements.txt" ]; then
-            echo "📦 Uploading requirements.txt..."
-            gcloud composer environments update "$COMPOSER_ENVIRONMENT_NAME" \
-              --location="$COMPOSER_LOCATION" \
-              --update-pypi-packages-from-file="requirements.txt" \
-              --project="$PROJECT_ID" || echo "⚠️ No update needed, skipping requirements update"
-          else
-            echo "⚠️ No requirements.txt found, skipping package updates"
-          fi
-          
-          
-          echo "✅ DAG files uploaded successfully"
-
-      - name: Health Check
-        run: |
-          # Composer 환경 정보
-          COMPOSER_ENVIRONMENT_NAME="${{ vars.COMPOSER_ENVIRONMENT_NAME || 'de6-2ez-airflow' }}"
-          COMPOSER_LOCATION="${{ vars.COMPOSER_LOCATION || 'asia-northeast3' }}"
-          PROJECT_ID="${{ vars.PROJECT_ID || 'de6-2ez' }}"
-          
-          echo "🔍 Checking Composer environment health..."
-          
-          # Composer 환경 상태 확인
-          ENV_STATE=$(gcloud composer environments describe "$COMPOSER_ENVIRONMENT_NAME" \
-            --location="$COMPOSER_LOCATION" \
-            --project="$PROJECT_ID" \
-            --format='get(state)')
-          
-          echo "Composer Environment State: $ENV_STATE"
-          
-          if [ "$ENV_STATE" = "RUNNING" ]; then
-            echo "✅ Composer environment is healthy!"
-            echo "🎉 Deployment successful!"
-            
-            # Composer 웹서버 URL 가져오기
-            AIRFLOW_URI=$(gcloud composer environments describe "$COMPOSER_ENVIRONMENT_NAME" \
-              --location="$COMPOSER_LOCATION" \
-              --project="$PROJECT_ID" \
-              --format='get(config.airflowUri)')
-            
-            echo "🌐 Airflow UI: $AIRFLOW_URI"
-            echo "👤 Use your Google account to login"
-            
-            # DAG 상태 확인
-            echo "📊 Checking DAG status..."
-            gcloud composer environments run "$COMPOSER_ENVIRONMENT_NAME" \
-              --location="$COMPOSER_LOCATION" \
-              --project="$PROJECT_ID" \
-              dags list || true
-          else
-            echo "❌ Composer environment is not running: $ENV_STATE"
-            exit 1
-          fi
-
-      - name: Cleanup on failure
-        if: failure()
-        run: |
-          echo "🧹 Deployment failed, checking Composer environment..."
-          
-          # Composer 환경 상태 확인
-          COMPOSER_ENVIRONMENT_NAME="${{ vars.COMPOSER_ENVIRONMENT_NAME || 'de6-2ez-airflow' }}"
-          COMPOSER_LOCATION="${{ vars.COMPOSER_LOCATION || 'asia-northeast3' }}"
-          PROJECT_ID="${{ vars.PROJECT_ID || 'de6-2ez' }}"
-          
-          echo "=== Composer Environment Status ==="
-          gcloud composer environments describe "$COMPOSER_ENVIRONMENT_NAME" \
-            --location="$COMPOSER_LOCATION" \
-            --project="$PROJECT_ID" \
-            --format='table(state,createTime,updateTime)' || true
-          
-          echo "=== Recent Operations ==="
-          gcloud composer operations list \
-            --locations="$COMPOSER_LOCATION" \
-            --project="$PROJECT_ID" \
-            --limit=5 || true
+      - name: Restart Airflow on VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCE_HOST }}
+          username: ${{ secrets.GCE_USER }}
+          key: ${{ secrets.GCE_SSH_KEY }}
+          script: |
+            echo "🔄 Restarting Airflow services..."
+            sudo systemctl restart airflow-scheduler
+            sudo systemctl restart airflow-webserver
+            echo "✅ Airflow restarted successfully"
