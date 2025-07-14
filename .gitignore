@@ -144,6 +144,9 @@ webserver_config.py
 logs/
 standalone_admin_password.txt
 
+# GCP service account keys
+gcp/
+
 # Database
 *.db
 *.sqlite
