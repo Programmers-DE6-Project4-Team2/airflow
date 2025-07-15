@@ -52,7 +52,7 @@ with DAG(
             skip_leading_rows=1,
             write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
             allow_quoted_newlines=True,  # 줄바꿈 포함된 리뷰도 처리
-            autodetect=True,
+            autodetect=False,
             schema=[
                 bigquery.SchemaField("product_id", "STRING"),
                 bigquery.SchemaField("name", "STRING"),
