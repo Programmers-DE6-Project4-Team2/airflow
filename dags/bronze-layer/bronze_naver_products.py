@@ -82,4 +82,3 @@ with DAG(
         python_callable=load_csvs_to_bq,
         provide_context=True,
     )
-
