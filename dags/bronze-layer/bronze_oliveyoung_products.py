@@ -1,6 +1,8 @@
 from datetime import timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.providers.google.cloud.hooks.gcs import GCSHook
+from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 from google.cloud import storage, bigquery
 from airflow.utils.dates import days_ago
 import pendulum
@@ -31,27 +33,27 @@ with DAG(
         bucket_name = "de6-ez2"
         prefix = "raw-data/olive-young/products/"
         search_prefix = f"{prefix}"
-
-        # 클라이언트 생성
-        client = storage.Client()
-        bq_client = bigquery.Client()
-
-        # 해당 날짜에 해당하는 GCS 파일 목록 필터링
-        bucket = client.bucket(bucket_name)
-        blobs = list(bucket.list_blobs(prefix=search_prefix))
+        
+        # Hook 기반 클라이언트 생성 (Airflow Connection 사용)
+        gcs_hook = GCSHook(gcp_conn_id="google_cloud_default")
+        bq_hook = BigQueryHook(gcp_conn_id="google_cloud_default")
+       
+        # GCS 파일 목록 가져오기
+        blobs = gcs_hook.list(bucket_name=bucket_name, prefix=search_prefix)
         file_list = [
-            b.name for b in blobs
-            if b.name.endswith(".csv") and f"/{year}/{month}/{day}/" in b.name
+            blob for blob in blobs
+            if blob.endswith(".csv") and f"/{year}/{month}/{day}/" in blob
         ]
 
         print(f"[oliveyoung_products] Found {len(file_list)} file(s) for {year}-{month}-{day}:")
 
         table_id = "de6-2ez.bronze.oliveyoung_products"
+
         job_config = bigquery.LoadJobConfig(
             source_format=bigquery.SourceFormat.CSV,
             skip_leading_rows=1,
             write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
-            allow_quoted_newlines=True,  # 줄바꿈 포함된 리뷰도 처리
+            allow_quoted_newlines=True,
             autodetect=False,
             schema=[
                 bigquery.SchemaField("product_id", "STRING"),
@@ -60,7 +62,7 @@ with DAG(
                 bigquery.SchemaField("price", "INTEGER"),
                 bigquery.SchemaField("url", "STRING"),
                 bigquery.SchemaField("rating", "FLOAT"),
-                bigquery.SchemaField("review_count", "STRING"),  # 고정!
+                bigquery.SchemaField("review_count", "STRING"),
                 bigquery.SchemaField("category", "STRING"),
                 bigquery.SchemaField("scraped_at", "TIMESTAMP"),
             ]
@@ -68,7 +70,26 @@ with DAG(
 
         for blob_name in file_list:
             gcs_uri = f"gs://{bucket_name}/{blob_name}"
-            bq_client.load_table_from_uri(gcs_uri, table_id, job_config=job_config).result()
+            bq_hook.insert_job(
+                configuration={
+                    "load": {
+                        "sourceUris": [gcs_uri],
+                        "destinationTable": {
+                            "projectId": "de6-2ez",
+                            "datasetId": "bronze",
+                            "tableId": "oliveyoung_products"
+                        },
+                        "writeDisposition": job_config.write_disposition,
+                        "skipLeadingRows": job_config.skip_leading_rows,
+                        "sourceFormat": job_config.source_format,
+                        "allowQuotedNewlines": job_config.allow_quoted_newlines,
+                        "schema": {
+                            "fields": [field.to_api_repr() for field in job_config.schema]
+                        }
+                    }
+                },
+                project_id="de6-2ez"
+            )
             print(f"[oliveyoung_products] Loaded file: {gcs_uri}")
 
     load_task = PythonOperator(
