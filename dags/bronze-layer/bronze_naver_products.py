@@ -1,8 +1,8 @@
-from datetime import timedelta
 from airflow import DAG
 from airflow.utils.dates import days_ago
 from airflow.operators.python import PythonOperator
 from google.cloud import storage, bigquery
+from datetime import timedelta
 import pendulum
 
 default_args = {
