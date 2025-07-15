@@ -78,7 +78,8 @@ jobs:
           
               # 권한 수정: dags/ 및 전체 디렉토리에 쓰기 권한 부여
               echo '🔑 Fixing file permissions...'
-              sudo chmod -R u+w . || true
+              sudo chown -R elhanan:elhanan . || true
+              chmod -R u+w . || true
 
               # Git 저장소 업데이트
               echo '📦 Updating code from Git...'
