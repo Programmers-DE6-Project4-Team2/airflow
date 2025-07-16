@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: de6-2ez      # GCP 프로젝트 ID
+    schema: bronze         # BigQuery Dataset
+    tables:
+      - name: naver_products
+        description: "네이버 상품 데이터 (원천 bronze)"
