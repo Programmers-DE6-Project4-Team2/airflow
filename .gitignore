@@ -144,6 +144,13 @@ webserver_config.py
 logs/
 standalone_admin_password.txt
 
+# GCP service account keys
+*.json
+gcp/*.json
+
+# dbt profiles (local only)
+~/.dbt/
+
 # Database
 *.db
 *.sqlite
