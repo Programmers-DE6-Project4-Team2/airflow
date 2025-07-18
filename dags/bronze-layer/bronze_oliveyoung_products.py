@@ -103,4 +103,3 @@ with DAG(
     )
 
     load_task >> trigger_silver_dag
-
