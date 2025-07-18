@@ -82,10 +82,10 @@ with DAG(
         provide_context=True,
     )
 
-    trigger_silver_dag = TriggerDagRunOperator(
-        task_id="trigger_silver_naver_dbt",
-        trigger_dag_id="silver_naver_product_dbt",  # 실행할 대상 DAG ID
-        wait_for_completion=False,  # True로 하면 downstream처럼 동작 (옵션)
-    )
+trigger_silver_dag = TriggerDagRunOperator(
+    task_id="trigger_silver_naver_dbt",
+    trigger_dag_id="silver_naver_product_dbt",  # 실행할 대상 DAG ID
+    wait_for_completion=False,  # True로 하면 downstream처럼 동작 (옵션)
+)
 
-    load_task >> trigger_silver_dag
+load_task >> trigger_silver_dag
