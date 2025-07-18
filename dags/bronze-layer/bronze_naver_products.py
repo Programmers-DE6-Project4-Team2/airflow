@@ -4,8 +4,8 @@ from airflow.utils.dates import days_ago
 from airflow.operators.python import PythonOperator
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
 from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from google.cloud import bigquery
-import pendulum
 
 default_args = {
     "owner": "h2k997183@gmail.com",
@@ -16,7 +16,7 @@ default_args = {
 with DAG(
     dag_id="bronze_naver_products",
     start_date=days_ago(1),
-    schedule_interval="@daily",
+    schedule_interval="0 3 * * *",
     catchup=True,
     default_args=default_args,
     description="Load Naver Beauty product CSVs from GCS to BigQuery Bronze",
@@ -46,7 +46,6 @@ with DAG(
 
         print(f"[naver_products] Found {len(file_list)} file(s) for {year}-{month}-{day}:")
 
-        table_id = "de6-2ez.bronze.naver_products"
         job_config = bigquery.LoadJobConfig(
             source_format=bigquery.SourceFormat.CSV,
             skip_leading_rows=1,
@@ -82,3 +81,11 @@ with DAG(
         python_callable=load_csvs_to_bq,
         provide_context=True,
     )
+
+    trigger_silver_dag = TriggerDagRunOperator(
+        task_id="trigger_silver_naver_dbt",
+        trigger_dag_id="silver_naver_product_dbt",  # 실행할 대상 DAG ID
+        wait_for_completion=False,  # True로 하면 downstream처럼 동작 (옵션)
+    )
+
+    load_task >> trigger_silver_dag

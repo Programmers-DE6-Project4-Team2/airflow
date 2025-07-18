@@ -3,9 +3,9 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
 from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
-from google.cloud import storage, bigquery
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from google.cloud import bigquery
 from airflow.utils.dates import days_ago
-import pendulum
 
 default_args = {
     "owner": "h2k997183@gmail.com",
@@ -16,7 +16,7 @@ default_args = {
 with DAG(
     dag_id="bronze_oliveyoung_products",
     start_date=days_ago(1),
-    schedule_interval="@daily",
+    schedule_interval="0 3 * * *",
     catchup=True,  # backfill 가능하도록 설정
     default_args=default_args,
     description="Load OliveYoung product CSVs from GCS to BigQuery Bronze",
@@ -37,7 +37,7 @@ with DAG(
         # Hook 기반 클라이언트 생성 (Airflow Connection 사용)
         gcs_hook = GCSHook(gcp_conn_id="google_cloud_default")
         bq_hook = BigQueryHook(gcp_conn_id="google_cloud_default")
-       
+
         # GCS 파일 목록 가져오기
         blobs = gcs_hook.list(bucket_name=bucket_name, prefix=search_prefix)
         file_list = [
@@ -46,8 +46,6 @@ with DAG(
         ]
 
         print(f"[oliveyoung_products] Found {len(file_list)} file(s) for {year}-{month}-{day}:")
-
-        table_id = "de6-2ez.bronze.oliveyoung_products"
 
         job_config = bigquery.LoadJobConfig(
             source_format=bigquery.SourceFormat.CSV,
@@ -97,3 +95,12 @@ with DAG(
         python_callable=load_csvs_to_bq,
         provide_context=True,
     )
+
+    trigger_silver_dag = TriggerDagRunOperator(
+        task_id="trigger_silver_oliveyoung_dbt",
+        trigger_dag_id="silver_oliveyoung_product_dbt",  # 이 DAG ID는 dbt 실행용 DAG에서 설정한 값과 일치해야 함
+        wait_for_completion=False,
+    )
+
+    load_task >> trigger_silver_dag
+
