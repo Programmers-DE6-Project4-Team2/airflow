@@ -32,7 +32,7 @@ with DAG(
         bucket_name = "de6-ez2"
         prefix = "raw-data/musinsa/products/"
         search_prefix = f"{prefix}"
-
+        
         gcs_hook = GCSHook(gcp_conn_id="google_cloud_default")
         bq_hook = BigQueryHook(gcp_conn_id="google_cloud_default")
 
@@ -79,7 +79,7 @@ with DAG(
         python_callable=load_csvs_to_bq,
         provide_context=True,
     )
-    
+
     trigger_silver_dag = TriggerDagRunOperator(
         task_id="trigger_silver_musinsa_dbt",
         trigger_dag_id="silver_musinsa_product_dbt",  # dbt 실행 DAG ID
