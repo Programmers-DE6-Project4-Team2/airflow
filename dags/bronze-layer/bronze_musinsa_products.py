@@ -1,9 +1,11 @@
+from datetime import timedelta
 from airflow import DAG
 from airflow.utils.dates import days_ago
 from airflow.operators.python import PythonOperator
-from google.cloud import storage, bigquery
-from datetime import timedelta
-import pendulum
+from airflow.providers.google.cloud.hooks.gcs import GCSHook
+from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from google.cloud import bigquery
 
 default_args = {
     "owner": "h2k997183@gmail.com",
@@ -14,7 +16,7 @@ default_args = {
 with DAG(
     dag_id="bronze_musinsa_products",
     start_date=days_ago(1),
-    schedule_interval="@daily",
+    schedule_interval="0 3 * * *",
     catchup=True,
     default_args=default_args,
     description="Load Musinsa product CSVs from GCS to BigQuery Bronze",
@@ -31,19 +33,17 @@ with DAG(
         prefix = "raw-data/musinsa/products/"
         search_prefix = f"{prefix}"
 
-        client = storage.Client()
-        bq_client = bigquery.Client()
+        gcs_hook = GCSHook(gcp_conn_id="google_cloud_default")
+        bq_hook = BigQueryHook(gcp_conn_id="google_cloud_default")
 
-        bucket = client.bucket(bucket_name)
-        blobs = list(bucket.list_blobs(prefix=search_prefix))
+        blobs = gcs_hook.list(bucket_name=bucket_name, prefix=search_prefix)
         file_list = [
-            b.name for b in blobs
-            if b.name.endswith(".csv") and f"/{year}/{month}/{day}/" in b.name
+            blob for blob in blobs
+            if blob.endswith(".csv") and f"/{year}/{month}/{day}/" in blob
         ]
 
         print(f"[musinsa_products] Found {len(file_list)} file(s) for {year}-{month}-{day}:")
 
-        table_id = "de6-2ez.bronze.musinsa_products"
         job_config = bigquery.LoadJobConfig(
             source_format=bigquery.SourceFormat.CSV,
             skip_leading_rows=1,
@@ -54,7 +54,24 @@ with DAG(
 
         for blob_name in file_list:
             gcs_uri = f"gs://{bucket_name}/{blob_name}"
-            bq_client.load_table_from_uri(gcs_uri, table_id, job_config=job_config).result()
+            bq_hook.insert_job(
+                configuration={
+                    "load": {
+                        "sourceUris": [gcs_uri],
+                        "destinationTable": {
+                            "projectId": "de6-2ez",
+                            "datasetId": "bronze",
+                            "tableId": "musinsa_products"
+                        },
+                        "writeDisposition": job_config.write_disposition,
+                        "skipLeadingRows": job_config.skip_leading_rows,
+                        "sourceFormat": job_config.source_format,
+                        "allowQuotedNewlines": job_config.allow_quoted_newlines,
+                        "autodetect": job_config.autodetect
+                    }
+                },
+                project_id="de6-2ez"
+            )
             print(f"[musinsa_products] Loaded file: {gcs_uri}")
 
     load_task = PythonOperator(
@@ -63,3 +80,10 @@ with DAG(
         provide_context=True,
     )
     
+    trigger_silver_dag = TriggerDagRunOperator(
+        task_id="trigger_silver_musinsa_dbt",
+        trigger_dag_id="silver_musinsa_product_dbt",  # dbt 실행 DAG ID
+        wait_for_completion=False,
+    )
+
+    load_task >> trigger_silver_dag
