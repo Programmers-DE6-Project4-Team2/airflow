@@ -109,6 +109,18 @@ jobs:
 
               echo '✅ Docker services started successfully'
             "
+            
+      - name: Upload GCP key to VM
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" > gcp-key.json
+
+          # 키 파일을 VM으로 전송
+          gcloud compute scp gcp-key.json elhanan@de6-ez2-airflow:/home/elhanan/airflow/gcp-key.json \
+            --zone=asia-northeast3-c \
+            --project=de6-2ez \
+            --quiet
+
+          echo "✅ gcp-key.json uploaded to VM"
 
       - name: Health Check
         run: |
