@@ -25,10 +25,7 @@ with DAG(
 ) as dag:
     @task()
     def get_target_products():
-        bq_hook = BigQueryHook(
-            gcp_conn_id="google_cloud_default",
-            location="asia-northeast3"
-        )
+        bq_hook = BigQueryHook(gcp_conn_id="google_cloud_default")
 
         query = """
         SELECT 
@@ -43,7 +40,12 @@ with DAG(
         LIMIT 50
         """
 
-        df = bq_hook.get_pandas_df(sql=query, dialect="standard")
+        df = bq_hook.get_pandas_df(
+            sql=query,
+            dialect="standard",
+            location="asia-northeast3",
+            project_id="de6-ez2"
+        )
         logger.info("[get_target_products] 총 %d개 상품 반환됨", len(df))
         return df.to_dict("records")
 
@@ -115,7 +117,8 @@ with DAG(
         logger.info("[update_review_metadata] %d개 상품 메타데이터 업데이트 중...", len(products))
         bq_hook.insert_job(
             configuration={"query": {"query": query, "useLegacySql": False}},
-            project_id="de6-2ez"
+            project_id="de6-2ez",
+            location="asia-northeast3"
         )
         logger.info("[update_review_metadata] 업데이트 완료")
 
