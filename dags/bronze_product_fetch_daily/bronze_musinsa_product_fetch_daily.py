@@ -1,4 +1,4 @@
-# dags/bronze_musinsa_product_dag.py
+# dags/bronze_musinsa_product_fetch_daily.py
 import pendulum
 
 from datetime import datetime, timedelta
