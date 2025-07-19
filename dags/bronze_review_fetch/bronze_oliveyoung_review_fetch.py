@@ -44,7 +44,6 @@ with DAG(
             sql=query,
             dialect="standard",
             location="asia-northeast3",
-            project_id="de6-ez2"
         )
         logger.info("[get_target_products] 총 %d개 상품 반환됨", len(df))
         return df.to_dict("records")
