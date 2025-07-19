@@ -1,7 +1,7 @@
 {{ config(
     materialized='incremental',
     unique_key='product_id',
-    incremental_strategy='merge' -- 기존 데이터와 비교해서 같은 키면 UPDATE, 아니면 INSERT
+    incremental_strategy='merge'
 ) }}
 
 WITH ranked AS (
