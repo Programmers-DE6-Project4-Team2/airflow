@@ -20,6 +20,7 @@ with DAG(
     dag_id="bronze_oliveyoung_product_fetch_daily",
     schedule_interval="0 0 * * *",  # 매일 00:00 UTC → KST 오전 9시
     start_date=pendulum.datetime(2025, 7, 1, tz="UTC"),
+    description='올리브영 상품 크롤링',
     catchup=False,
     tags=["oliveyoung", "cloud-run"],
     default_args={

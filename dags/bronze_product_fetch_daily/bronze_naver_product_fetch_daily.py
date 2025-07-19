@@ -12,6 +12,7 @@ with DAG(
     dag_id="bronze_naver_product_fetch_daily",
     schedule_interval="0 0 * * *",  # 매일 00:00 UTC → 오전 9시 KST
     start_date=pendulum.datetime(2025, 7, 1, tz="UTC"),
+    description='네이버 쇼핑(뷰티) 크롤링',
     catchup=False,
     tags=["naver", "product", "cloud-run"],
     default_args={
