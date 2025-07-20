@@ -132,7 +132,7 @@ jobs:
           echo "VM External IP: $VM_IP"
           echo "🔍 Checking Airflow webserver health..."
 
-          for i in {1..18}; do
+          for i in {1..30}; do
             if curl -f -s --connect-timeout 5 "http://$VM_IP:8080/health" > /dev/null 2>&1; then
               echo "✅ Airflow webserver is healthy!"
               echo "🎉 Deployment successful!"
@@ -141,7 +141,7 @@ jobs:
               echo "🐍 dbt environment: /home/airflow/airflow/dbt-venv"
               exit 0
             else
-              echo "⏳ Attempt $i/18: Airflow not ready yet, waiting 10s..."
+              echo "⏳ Attempt $i/30: Airflow not ready yet, waiting 10s..."
               sleep 10
             fi
           done
