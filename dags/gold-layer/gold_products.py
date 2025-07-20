@@ -16,12 +16,11 @@ with DAG(
 ) as dag:
 
     run_dbt_gold_products = BashOperator(
-        task_id="run_dbt_gold_products_model",
-        bash_command="""
-        source /home/airflow/airflow/dbt-venv/bin/activate && \
-        dbt run \
-            --project-dir /home/airflow/airflow/dbt/beauty_elt \
-            --profiles-dir /home/airflow/.dbt \
-            --select gold_products
-        """,
-    )
+    task_id="run_dbt_gold_products_model",
+    bash_command="""
+    dbt run \
+        --project-dir /home/airflow/airflow/dbt/beauty_elt \
+        --profiles-dir /home/airflow/.dbt \
+        --select gold_products
+    """,
+)
