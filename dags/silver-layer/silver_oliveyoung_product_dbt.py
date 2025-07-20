@@ -20,8 +20,9 @@ with DAG(
     run_dbt_model = BashOperator(
         task_id="run_dbt_oliveyoung_model",
         bash_command="""
-        source /home/airflow/airflow/dbt-venv/bin/activate
-        cd /home/airflow/airflow/dbt/beauty_elt
-        dbt run --select oliveyoung_products
+        dbt run \
+            --project-dir /opt/airflow/dbt/beauty_elt \
+            --profiles-dir /opt/airflow/.dbt \
+            --select oliveyoung_products
         """,
     )
