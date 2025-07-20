@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: gold_products
+    description: "플랫폼별 실버 상품 데이터를 통합한 골드 계층 상품 테이블"
+    columns:
+      - name: product_uid
+        description: "플랫폼 + product_id를 조합한 유일 식별자 (예: naver_123456)"
+        tests:
+          - unique
+          - not_null
+
+      - name: product_id
+        description: "원본 플랫폼에서의 상품 ID"
+
+      - name: name
+        description: "상품 이름"
+
+      - name: brand
+        description: "상품 브랜드명"
+
+      - name: price
+        description: "상품 가격 (정가 또는 판매가)"
+
+      - name: rating
+        description: "리뷰 평균 평점 (소수점 1자리, musinsa는 0~100을 0~5로 변환)"
+
+      - name: review_count
+        description: "상품에 대한 리뷰 수"
+
+      - name: category
+        description: "상품 카테고리명"
+
+      - name: platform
+        description: "데이터 출처 플랫폼"
+
+      - name: scraped_at
+        description: "해당 상품이 수집된 시각 (UTC)"

@@ -112,9 +112,10 @@ jobs:
             
       - name: Upload GCP key to VM
         run: |
-          echo "${{ secrets.DBT_BIGQUERY_KEY_BASE64 }}" | base64 --decode > gcp-key.json
+          mkdir -p gcp
+          echo "${{ secrets.DBT_BIGQUERY_KEY_BASE64 }}" | base64 --decode > gcp/bigquery_access_key.json
           # 키 파일을 VM으로 전송
-          gcloud compute scp gcp-key.json airflow@de6-ez2-airflow:/home/airflow/airflow/gcp-key.json \
+          gcloud compute scp gcp/bigquery_access_key.json airflow@de6-ez2-airflow:/home/airflow/airflow/gcp/bigquery_access_key.json \
             --zone=asia-northeast3-c \
             --project=de6-2ez \
             --quiet
