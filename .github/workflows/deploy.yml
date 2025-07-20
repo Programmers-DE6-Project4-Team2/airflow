@@ -122,16 +122,6 @@ jobs:
 
           echo "✅ gcp-key.json uploaded to VM"
 
-      - name: Upload dbt profiles.yml to VM
-        run: |
-          mkdir -p .dbt
-          echo "${{ secrets.DBT_PROFILES_YML }}" > .dbt/profiles.yml
-          gcloud compute scp .dbt/profiles.yml airflow@de6-ez2-airflow:/home/airflow/.dbt/profiles.yml \
-            --zone=asia-northeast3-c \
-            --project=de6-2ez \
-            --quiet
-          echo "✅ profiles.yml uploaded to VM"
-
       - name: Health Check
         run: |
           VM_IP=$(gcloud compute instances describe de6-ez2-airflow \
