@@ -20,9 +20,9 @@ with DAG(
     run_dbt_model = BashOperator(
         task_id="run_dbt_naver_model",
         bash_command="""
-        source /home/airflow/airflow/dbt-venv/bin/activate && \
-        dbt run --project-dir /home/airflow/airflow/dbt/beauty_elt \
-            --profiles-dir /home/airflow/.dbt \
+        dbt run \
+            --project-dir /opt/airflow/dbt/beauty_elt \
+            --profiles-dir /opt/airflow/.dbt \
             --select naver_products
         """,
     )
