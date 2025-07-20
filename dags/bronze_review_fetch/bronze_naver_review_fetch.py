@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 default_args = {
-    "owner": "dawit0905@gmail.com",
+    "owner": "myksphone2001@gmail.com",
     "retries": 1,
     "retry_delay": timedelta(minutes=1),
 }
