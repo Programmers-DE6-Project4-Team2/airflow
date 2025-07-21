@@ -21,7 +21,7 @@ with DAG(
     dbt run \
         --project-dir /opt/airflow/dbt/beauty_elt \
         --profiles-dir /opt/airflow/.dbt \
-        --select fact_products
+        --select fact_products \
         --target gold
     """,
 )
