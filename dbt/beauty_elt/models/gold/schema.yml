@@ -1,7 +1,7 @@
 version: 2
 
 models:
-  - name: gold_products
+  - name: fact_products
     description: "플랫폼별 실버 상품 데이터를 통합한 골드 계층 상품 테이블"
     columns:
       - name: product_uid
