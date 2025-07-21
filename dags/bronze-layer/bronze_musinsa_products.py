@@ -95,8 +95,6 @@ with DAG(
                 project_id="de6-2ez"
             )
             print(f"[musinsa_products] Loaded file: {gcs_uri}")
-            
-            # ⏱️ 딜레이 추가 → 요청 간 간격 확보
             time.sleep(random.uniform(1.5, 2.5))
 
     load_task = PythonOperator(

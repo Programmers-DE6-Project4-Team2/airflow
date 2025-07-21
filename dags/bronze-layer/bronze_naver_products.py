@@ -78,7 +78,6 @@ with DAG(
                 project_id="de6-2ez"
             )
             print(f"[naver_products] Loaded file: {gcs_uri}")
-            
             time.sleep(random.uniform(1.5, 2.5))
 
     load_task = PythonOperator(
