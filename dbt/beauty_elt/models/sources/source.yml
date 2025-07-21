@@ -7,3 +7,9 @@ sources:
     tables:
       - name: naver_products
         description: "네이버 상품 데이터 (원천 bronze)"
+
+      - name: oliveyoung_products
+        description: "올리브영 상품 데이터 (원천 bronze)"
+
+      - name: musinsa_products
+        description: "네이버 상품 데이터 (원천 bronze)"

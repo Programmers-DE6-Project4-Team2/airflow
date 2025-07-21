@@ -8,21 +8,21 @@ default_args = {
 }
 
 with DAG(
-    dag_id="silver_naver_product_dbt",
+    dag_id="silver_musinsa_product_dbt",
     default_args=default_args,
     start_date=days_ago(1),
     schedule_interval=None,  # 수동 실행 또는 upstream에 따라 설정
     catchup=False,
-    description="Run dbt model for Naver product silver layer",
-    tags=["silver", "naver", "dbt"],
+    description="Run dbt model for Musinsa product silver layer",
+    tags=["silver", "musinsa", "dbt"],
 ) as dag:
 
     run_dbt_model = BashOperator(
-        task_id="run_dbt_naver_model",
+        task_id="run_dbt_musinsa_model",
         bash_command="""
         dbt run \
             --project-dir /opt/airflow/dbt/beauty_elt \
             --profiles-dir /opt/airflow/.dbt \
-            --select naver_products
+            --select musinsa_products
         """,
     )

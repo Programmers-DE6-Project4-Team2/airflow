@@ -1,0 +1,71 @@
+version: 2
+
+models:
+  - name: naver_products    # dbt 모델 파일 이름 (naver_products.sql)
+    description: "네이버 뷰티 상품 데이터 (silver)"
+    columns:
+      - name: product_id
+        description: "상품 고유 ID"
+        tests:
+          - unique
+          - not_null
+      - name: brand
+        description: "브랜드명"
+
+  - name: oliveyoung_products
+    description: "올리브영 뷰티 상품 데이터 (silver)"
+    columns:
+      - name: product_id
+        description: "상품 고유 ID"
+        tests:
+          - unique
+          - not_null
+      - name: brand
+        description: "브랜드명"
+      - name: price
+        description: "가격 (정수)"
+      - name: rating
+        description: "평점 (0~5 float)"
+      - name: category
+        description: "카테고리명"
+
+  - name: musinsa_products
+    description: "무신사 뷰티 상품 데이터 (silver)"
+    columns:
+      - name: product_id
+        description: "상품 고유 ID"
+        tests:
+          - unique
+          - not_null
+      - name: name
+        description: "상품명"
+      - name: brand
+        description: "브랜드명"
+      - name: price
+        description: "할인 적용 가격"
+      - name: original_price
+        description: "정가"
+      - name: discount_rate
+        description: "할인율 (%)"
+      - name: rating
+        description: "상품 평점 (0~5 float)"
+      - name: review_count
+        description: "리뷰 개수"
+      - name: likes
+        description: "좋아요 수"
+      - name: image_url
+        description: "상품 이미지 URL"
+      - name: product_url
+        description: "상품 상세 페이지 URL"
+      - name: number_of_views
+        description: "조회수"
+      - name: sales
+        description: "판매량"
+      - name: scraped_at
+        description: "크롤링 일시"
+      - name: category_name
+        description: "카테고리 이름"
+      - name: category_code
+        description: "카테고리 코드"
+      - name: platform
+        description: "'무신사' 고정 값"
