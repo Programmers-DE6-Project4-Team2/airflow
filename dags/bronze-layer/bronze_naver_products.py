@@ -7,6 +7,9 @@ from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from google.cloud import bigquery
 
+import time
+import random
+
 default_args = {
     "owner": "h2k997183@gmail.com",
     "retries": 1,
@@ -75,6 +78,7 @@ with DAG(
                 project_id="de6-2ez"
             )
             print(f"[naver_products] Loaded file: {gcs_uri}")
+            time.sleep(random.uniform(1.5, 2.5))
 
     load_task = PythonOperator(
         task_id="load_csvs_to_bq",

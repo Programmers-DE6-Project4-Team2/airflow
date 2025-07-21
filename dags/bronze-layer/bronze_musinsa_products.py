@@ -7,6 +7,9 @@ from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from google.cloud import bigquery
 
+import time
+import random
+
 default_args = {
     "owner": "h2k997183@gmail.com",
     "retries": 1,
@@ -49,7 +52,26 @@ with DAG(
             skip_leading_rows=1,
             write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
             allow_quoted_newlines=True,
-            autodetect=True,
+            autodetect=False,
+            schema=[
+                bigquery.SchemaField("rank", "INTEGER"),
+                bigquery.SchemaField("name", "STRING"),
+                bigquery.SchemaField("brand", "STRING"),
+                bigquery.SchemaField("price", "INTEGER"),
+                bigquery.SchemaField("original_price", "INTEGER"),
+                bigquery.SchemaField("discount_rate", "INTEGER"),
+                bigquery.SchemaField("rating", "INTEGER"),
+                bigquery.SchemaField("review_count", "INTEGER"),
+                bigquery.SchemaField("likes", "STRING"),
+                bigquery.SchemaField("image_url", "STRING"),
+                bigquery.SchemaField("product_url", "STRING"),
+                bigquery.SchemaField("product_id", "INTEGER"),
+                bigquery.SchemaField("number_of_views", "INTEGER"),
+                bigquery.SchemaField("sales", "INTEGER"),
+                bigquery.SchemaField("scraped_at", "TIMESTAMP"),
+                bigquery.SchemaField("category_name", "STRING"),
+                bigquery.SchemaField("category_code", "INTEGER"),
+            ]
         )
 
         for blob_name in file_list:
@@ -73,6 +95,7 @@ with DAG(
                 project_id="de6-2ez"
             )
             print(f"[musinsa_products] Loaded file: {gcs_uri}")
+            time.sleep(random.uniform(1.5, 2.5))
 
     load_task = PythonOperator(
         task_id="load_csvs_to_bq",
