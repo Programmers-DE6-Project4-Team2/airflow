@@ -90,6 +90,8 @@ x-airflow-common:
     - /home/airflow/.dbt:/opt/airflow/.dbt                # dbt profiles
 
   user: "${AIRFLOW_UID:-50000}:0"
+  networks:
+    - airflow
   depends_on:
     &airflow-common-depends-on
     redis:
@@ -106,11 +108,14 @@ services:
       POSTGRES_DB: airflow
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+    networks:
+      - airflow
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
+      test: ["CMD", "pg_isready", "-U", "airflow", "-d", "airflow"]
       interval: 10s
-      retries: 5
-      start_period: 5s
+      retries: 10
+      start_period: 10s
+      timeout: 5s
     restart: always
 
   redis:
@@ -119,6 +124,8 @@ services:
     image: redis:7.2-bookworm
     expose:
       - 6379
+    networks:
+      - airflow
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -298,3 +305,7 @@ services:
 
 volumes:
   postgres-db-volume:
+
+networks:
+  airflow:
+    driver: bridge
