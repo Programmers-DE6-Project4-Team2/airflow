@@ -1,7 +1,8 @@
 name: Deploy Airflow to GCP VM
+
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   deploy:
@@ -28,12 +29,10 @@ jobs:
 
       - name: Configure SSH key
         run: |
-          # SSH 키 설정 (GCP 메타데이터에서 관리되는 경우 생략 가능)
           echo "SSH key configuration completed"
 
       - name: Deploy to VM
         run: |
-          # VM 인스턴스가 실행 중인지 확인
           gcloud compute instances describe de6-ez2-airflow \
             --zone=asia-northeast3-c \
             --project=de6-2ez \
@@ -48,7 +47,6 @@ jobs:
               --zone=asia-northeast3-c \
               --project=de6-2ez
 
-            # VM 시작 확인 (polling)
             echo "Waiting for VM to be ready..."
             for i in {1..12}; do
               STATUS=$(gcloud compute instances describe de6-ez2-airflow \
@@ -64,41 +62,41 @@ jobs:
             done
           fi
 
-          # SSH로 VM에 접속하여 배포 실행
-          gcloud compute ssh elhanan@de6-ez2-airflow \
+          gcloud compute ssh airflow@de6-ez2-airflow \
             --zone=asia-northeast3-c \
             --project=de6-2ez \
             --ssh-flag="-o StrictHostKeyChecking=no" \
             --command="
               set -e
               echo '🚀 Starting deployment process...'
+              cd /home/airflow/airflow || { echo 'Directory not found'; exit 1; }
 
-              # 작업 디렉토리로 이동
-              cd /home/elhanan/airflow || { echo 'Directory /home/elhanan/airflow not found'; exit 1; }
-          
-              # 권한 수정: dags/ 및 전체 디렉토리에 쓰기 권한 부여
               echo '🔑 Fixing file permissions...'
-              sudo chown -R elhanan:elhanan . || true
+              sudo chown -R airflow:airflow . || true
               chmod -R u+w . || true
 
-              # Git 저장소 업데이트
               echo '📦 Updating code from Git...'
               git fetch origin
               git reset --hard origin/main
 
-              # Docker Compose 서비스 재시작
               echo '🔄 Restarting Docker services...'
               docker compose down
               docker compose pull
 
-              # 환경 변수 설정 (필요한 경우)
               export AIRFLOW_UID=\$(id -u)
               export AIRFLOW_GID=0
-
-              # 서비스 시작
               docker compose up -d
 
-              # 컨테이너 시작 확인
+              echo '🐍 Setting up dbt environment...'
+              if [ ! -d 'dbt-venv' ]; then
+                python3 -m venv dbt-venv
+                source dbt-venv/bin/activate
+                pip install dbt-bigquery
+                echo '✅ dbt environment created'
+              else
+                echo '✅ dbt environment already exists'
+              fi
+
               echo '⏳ Waiting for containers to start...'
               for i in {1..6}; do
                 if docker compose ps | grep -q 'Up'; then
@@ -111,53 +109,57 @@ jobs:
 
               echo '✅ Docker services started successfully'
             "
+            
+      - name: Upload GCP key to VM
+        run: |
+          mkdir -p gcp
+          echo "${{ secrets.DBT_BIGQUERY_KEY_BASE64 }}" | base64 --decode > gcp/bigquery_access_key.json
+          # 키 파일을 VM으로 전송
+          gcloud compute scp gcp/bigquery_access_key.json airflow@de6-ez2-airflow:/home/airflow/airflow/gcp/bigquery_access_key.json \
+            --zone=asia-northeast3-c \
+            --project=de6-2ez \
+            --quiet
+
+          echo "✅ gcp-key.json uploaded to VM"
 
       - name: Health Check
         run: |
-          # VM의 외부 IP 주소 가져오기
           VM_IP=$(gcloud compute instances describe de6-ez2-airflow \
             --zone=asia-northeast3-c \
             --project=de6-2ez \
             --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
-          
-          echo "VM External IP: $VM_IP"
 
-          # Airflow 웹서버 헬스체크 (더 빠른 간격으로)
+          echo "VM External IP: $VM_IP"
           echo "🔍 Checking Airflow webserver health..."
 
-          # 최대 3분간 헬스체크 (10초 간격)
-          for i in {1..18}; do
+          for i in {1..30}; do
             if curl -f -s --connect-timeout 5 "http://$VM_IP:8080/health" > /dev/null 2>&1; then
               echo "✅ Airflow webserver is healthy!"
               echo "🎉 Deployment successful!"
               echo "🌐 Airflow UI: http://$VM_IP:8080"
               echo "👤 Default login: airflow / airflow"
+              echo "🐍 dbt environment: /home/airflow/airflow/dbt-venv"
               exit 0
             else
-              echo "⏳ Attempt $i/18: Airflow not ready yet, waiting 10s..."
+              echo "⏳ Attempt $i/30: Airflow not ready yet, waiting 10s..."
               sleep 10
             fi
           done
 
           echo "❌ Health check failed - Airflow webserver not responding"
           echo "🔍 Checking container status..."
-
-          # 컨테이너 상태 확인
-          gcloud compute ssh elhanan@de6-ez2-airflow \
+          gcloud compute ssh airflow@de6-ez2-airflow \
             --zone=asia-northeast3-c \
             --project=de6-2ez \
             --ssh-flag="-o StrictHostKeyChecking=no" \
             --command="docker compose ps"
-
           exit 1
 
       - name: Cleanup on failure
         if: failure()
         run: |
           echo "🧹 Deployment failed, checking logs..."
-
-          # 실패 시 로그 확인
-          gcloud compute ssh elhanan@de6-ez2-airflow \
+          gcloud compute ssh airflow@de6-ez2-airflow \
             --zone=asia-northeast3-c \
             --project=de6-2ez \
             --ssh-flag="-o StrictHostKeyChecking=no" \

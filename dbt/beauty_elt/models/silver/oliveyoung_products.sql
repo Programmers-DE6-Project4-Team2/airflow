@@ -8,8 +8,7 @@ WITH ranked AS (
     SELECT
         *,
         ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY scraped_at DESC) AS row_num
-    FROM {{ source('bronze', 'naver_products') }}
-    WHERE category_name IS NOT NULL AND category_name != '전체'
+    FROM {{ source('bronze', 'oliveyoung_products') }}
 )
 
 SELECT
@@ -17,14 +16,11 @@ SELECT
     name,
     brand,
     price,
-    representativeImageUrl,
-    reviewCount,
-    avgReviewScore,
-    product_url,
-    categories,
-    category_name,
-    channelName,
+    url AS product_url,
+    rating,
+    review_count,
+    category,
     scraped_at,
-    '네이버' AS platform 
+    '올리브영' AS platform 
 FROM ranked
 WHERE row_num = 1

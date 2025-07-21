@@ -84,6 +84,9 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - ${AIRFLOW_PROJ_DIR:-.}/requirements.txt:/requirements.txt
     - ${AIRFLOW_PROJ_DIR:-.}/gcp:/opt/airflow/gcp
+    - ${AIRFLOW_PROJ_DIR:-.}/dbt:/opt/airflow/dbt          # dbt 프로젝트
+    - /home/airflow/.dbt:/opt/airflow/.dbt                # dbt profiles
+
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
