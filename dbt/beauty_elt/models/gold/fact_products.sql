@@ -2,7 +2,6 @@
     materialized='incremental',
     unique_key='product_uid',
     incremental_strategy='merge',
-    schema='gold'
 ) }}
 
 -- ✅ Naver
