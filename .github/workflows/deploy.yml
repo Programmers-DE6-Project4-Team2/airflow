@@ -1,8 +1,10 @@
-name: Deploy Airflow to GCP VM
+name: Upload DAGs to GCS
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'dags/**'  # dags 폴더 안의 파일이 변경되었을 때만 트리거
 
 jobs:
   deploy:
@@ -21,155 +23,8 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Verify authentication
+      - name: Upload DAGs to GCS
         run: |
-          gcloud auth list
-          gcloud config list project
-          echo "✅ Authentication successful"
-
-      - name: Configure SSH key
-        run: |
-          echo "SSH key configuration completed"
-
-      - name: Deploy to VM
-        run: |
-          gcloud compute instances describe de6-ez2-airflow \
-            --zone=asia-northeast3-c \
-            --project=de6-2ez \
-            --format='get(status)' > vm_status.txt
-
-          VM_STATUS=$(cat vm_status.txt)
-          echo "VM Status: $VM_STATUS"
-
-          if [ "$VM_STATUS" != "RUNNING" ]; then
-            echo "Starting VM instance..."
-            gcloud compute instances start de6-ez2-airflow \
-              --zone=asia-northeast3-c \
-              --project=de6-2ez
-
-            echo "Waiting for VM to be ready..."
-            for i in {1..12}; do
-              STATUS=$(gcloud compute instances describe de6-ez2-airflow \
-                --zone=asia-northeast3-c \
-                --project=de6-2ez \
-                --format='get(status)')
-              if [ "$STATUS" = "RUNNING" ]; then
-                echo "✅ VM is now running"
-                break
-              fi
-              echo "⏳ VM starting... ($i/12)"
-              sleep 5
-            done
-          fi
-
-          gcloud compute ssh airflow@de6-ez2-airflow \
-            --zone=asia-northeast3-c \
-            --project=de6-2ez \
-            --ssh-flag="-o StrictHostKeyChecking=no" \
-            --command="
-              set -e
-              echo '🚀 Starting deployment process...'
-              cd /home/airflow/airflow || { echo 'Directory not found'; exit 1; }
-
-              echo '🔑 Fixing file permissions...'
-              sudo chown -R airflow:airflow . || true
-              chmod -R u+w . || true
-
-              echo '📦 Updating code from Git...'
-              git fetch origin
-              git reset --hard origin/main
-
-              echo '🔄 Restarting Docker services...'
-              docker compose down
-              docker compose pull
-
-              export AIRFLOW_UID=\$(id -u)
-              export AIRFLOW_GID=0
-              docker compose up -d
-
-              echo '🐍 Setting up dbt environment...'
-              if [ ! -d 'dbt-venv' ]; then
-                python3 -m venv dbt-venv
-                source dbt-venv/bin/activate
-                pip install dbt-bigquery
-                echo '✅ dbt environment created'
-              else
-                echo '✅ dbt environment already exists'
-              fi
-
-              echo '⏳ Waiting for containers to start...'
-              for i in {1..6}; do
-                if docker compose ps | grep -q 'Up'; then
-                  echo '✅ Containers are starting up'
-                  break
-                fi
-                echo 'Waiting for containers... (\$i/6)'
-                sleep 5
-              done
-
-              echo '✅ Docker services started successfully'
-            "
-            
-      - name: Upload GCP key to VM
-        run: |
-          mkdir -p gcp
-          echo "${{ secrets.DBT_BIGQUERY_KEY_BASE64 }}" | base64 --decode > gcp/bigquery_access_key.json
-          # 키 파일을 VM으로 전송
-          gcloud compute scp gcp/bigquery_access_key.json airflow@de6-ez2-airflow:/home/airflow/airflow/gcp/bigquery_access_key.json \
-            --zone=asia-northeast3-c \
-            --project=de6-2ez \
-            --quiet
-
-          echo "✅ gcp-key.json uploaded to VM"
-
-      - name: Health Check
-        run: |
-          VM_IP=$(gcloud compute instances describe de6-ez2-airflow \
-            --zone=asia-northeast3-c \
-            --project=de6-2ez \
-            --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
-
-          echo "VM External IP: $VM_IP"
-          echo "🔍 Checking Airflow webserver health..."
-
-          for i in {1..30}; do
-            if curl -f -s --connect-timeout 5 "http://$VM_IP:8080/health" > /dev/null 2>&1; then
-              echo "✅ Airflow webserver is healthy!"
-              echo "🎉 Deployment successful!"
-              echo "🌐 Airflow UI: http://$VM_IP:8080"
-              echo "👤 Default login: airflow / airflow"
-              echo "🐍 dbt environment: /home/airflow/airflow/dbt-venv"
-              exit 0
-            else
-              echo "⏳ Attempt $i/30: Airflow not ready yet, waiting 10s..."
-              sleep 10
-            fi
-          done
-
-          echo "❌ Health check failed - Airflow webserver not responding"
-          echo "🔍 Checking container status..."
-          gcloud compute ssh airflow@de6-ez2-airflow \
-            --zone=asia-northeast3-c \
-            --project=de6-2ez \
-            --ssh-flag="-o StrictHostKeyChecking=no" \
-            --command="docker compose ps"
-          exit 1
-
-      - name: Cleanup on failure
-        if: failure()
-        run: |
-          echo "🧹 Deployment failed, checking logs..."
-          gcloud compute ssh airflow@de6-ez2-airflow \
-            --zone=asia-northeast3-c \
-            --project=de6-2ez \
-            --ssh-flag="-o StrictHostKeyChecking=no" \
-            --command="
-              echo '=== Docker Compose Status ==='
-              docker compose ps
-
-              echo '=== Airflow Webserver Logs ==='
-              docker compose logs --tail=50 airflow-webserver
-
-              echo '=== Airflow Scheduler Logs ==='
-              docker compose logs --tail=50 airflow-scheduler
-            " || true
+          echo "📤 Uploading DAGs to GCS..."
+          gsutil -m cp -r dags/* gs://de6-ez2/dags/
+          echo "✅ DAGs uploaded successfully"
