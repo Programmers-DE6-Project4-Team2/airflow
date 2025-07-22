@@ -29,8 +29,11 @@ WITH unified_products AS (
     name,
     brand,
     price,
-    ROUND(rating, 1) AS rating,
-    SAFE_CAST(REGEXP_REPLACE(review_count, r"[^\d]", "") AS INT64) AS review_count,
+    COALESCE(ROUND(rating, 1), 0.0) AS rating,
+    COALESCE(
+      SAFE_CAST(NULLIF(REGEXP_REPLACE(CAST(review_count AS STRING), r"[^\d]", ""), '') AS INT64),
+      0
+    ) AS review_count,
     category,
     platform,
     scraped_at
