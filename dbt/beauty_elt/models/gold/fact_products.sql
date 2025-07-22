@@ -22,15 +22,18 @@ WITH unified_products AS (
 
   UNION ALL
 
-  -- ✅ Oliveyoung (문자열 리뷰수 처리)
+  -- ✅ Oliveyoung
   SELECT
     CONCAT('oliveyoung_', product_id) AS product_uid,
     product_id,
     name,
     brand,
     price,
-    ROUND(rating, 1) AS rating,
-    SAFE_CAST(REGEXP_REPLACE(CAST(review_count AS STRING), r"[^\d]", "") AS INT64) AS review_count,
+    COALESCE(ROUND(rating, 1), 0.0) AS rating,
+    COALESCE(
+      SAFE_CAST(NULLIF(REGEXP_REPLACE(CAST(review_count AS STRING), r"[^\d]", ""), '') AS INT64),
+      0
+    ) AS review_count,
     category,
     platform,
     scraped_at
