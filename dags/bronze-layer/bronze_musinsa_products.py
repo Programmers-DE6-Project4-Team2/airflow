@@ -34,13 +34,16 @@ with DAG(
 
         bucket_name = "de6-ez2"
         prefix = "raw-data/musinsa/products/"
-        search_prefix = f"{prefix}{year}/{month}/{day}/"  # 날짜 디렉토리만 탐색
+        search_prefix = prefix  
 
         gcs_hook = GCSHook(gcp_conn_id="google_cloud_default")
         bq_hook = BigQueryHook(gcp_conn_id="google_cloud_default")
 
         blobs = gcs_hook.list(bucket_name=bucket_name, prefix=search_prefix)
-        file_list = [blob for blob in blobs if blob.endswith(".csv")]
+        file_list = [
+            blob for blob in blobs
+            if blob.endswith(".csv") and f"/{year}/{month}/{day}/" in blob
+        ]
 
         if not file_list:
             print(f"[musinsa_products] ❗ No CSV files found under {search_prefix}")

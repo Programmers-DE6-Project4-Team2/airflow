@@ -17,8 +17,8 @@ with DAG(
     schedule_interval="0 4 * * *",  # 2시 실행
     catchup=True,
     default_args=default_args,
-    description="Load Musinsa product CSVs from GCS to BigQuery Bronze in a single batch",
-    tags=["bronze", "musinsa", "products"],
+    description="Load Musinsa review CSVs from GCS to BigQuery Bronze in a single batch",
+    tags=["bronze", "musinsa", "reviews"],
     max_active_tasks=1,
 ) as dag:
 
@@ -30,14 +30,14 @@ with DAG(
         day = execution_date.strftime("%d")
 
         bucket_name = "de6-ez2"
-        prefix = f"raw-data/musinsa/products/"
+        prefix = f"raw-data/musinsa/reviews/"
         target_path = f"{prefix}{year}/{month}/{day}/"
 
         gcs_hook = GCSHook(gcp_conn_id="google_cloud_default")
         blobs = gcs_hook.list(bucket_name=bucket_name, prefix=target_path)
 
         file_list = [b for b in blobs if b.endswith(".csv")]
-        print(f"✅ Found {len(file_list)} MUSINSA product files under {target_path}")
+        print(f"✅ Found {len(file_list)} MUSINSA review files under {target_path}")
         return file_list
 
     @task
@@ -56,7 +56,7 @@ with DAG(
 
         load_job = bq_client.load_table_from_uri(
             source_uris=uris,
-            destination="de6-2ez.bronze.musinsa_products",
+            destination="de6-2ez.bronze.musinsa_reviews",
             job_config=job_config,
         )
         load_job.result()
