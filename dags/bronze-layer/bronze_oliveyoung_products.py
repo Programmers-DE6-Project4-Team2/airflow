@@ -31,14 +31,17 @@ with DAG(
 
         bucket_name = "de6-ez2"
         prefix = "raw-data/olive-young/products/"
-        search_prefix = f"{prefix}{year}/{month}/{day}/"  # 정확한 경로만 조회
+        search_prefix = prefix
 
         gcs_hook = GCSHook(gcp_conn_id="google_cloud_default")
         bq_hook = BigQueryHook(gcp_conn_id="google_cloud_default")
 
         # 해당 날짜의 CSV 목록만 조회
         blobs = gcs_hook.list(bucket_name=bucket_name, prefix=search_prefix)
-        file_list = [blob for blob in blobs if blob.endswith(".csv")]
+        file_list = [
+            blob for blob in blobs
+            if blob.endswith(".csv") and f"/{year}/{month}/{day}/" in blob
+        ]
 
         if not file_list:
             print(f"[oliveyoung_products] ❗ No files found for {year}-{month}-{day}")
