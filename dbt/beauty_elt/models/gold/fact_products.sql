@@ -14,7 +14,7 @@ WITH unified_products AS (
     brand,
     price,
     ROUND(avgReviewScore, 1) AS rating,
-    SAFE_CAST(REGEXP_REPLACE(reviewCount, r"[^\d]", "") AS INT64) AS review_count,
+    SAFE_CAST(reviewCount AS INT64) AS review_count,
     category_name AS category,
     platform,
     scraped_at
@@ -41,7 +41,7 @@ WITH unified_products AS (
 
   UNION ALL
 
-  -- ✅ Musinsa
+  -- ✅ Musinsa (별점 0~100 → 0~5, 정수 리뷰 수)
   SELECT
     CONCAT('musinsa_', product_id) AS product_uid,
     product_id,
@@ -49,7 +49,7 @@ WITH unified_products AS (
     brand,
     price,
     ROUND(SAFE_DIVIDE(SAFE_CAST(rating AS FLOAT64), 20.0), 1) AS rating,
-    SAFE_CAST(REGEXP_REPLACE(review_count, r"[^\d]", "") AS INT64) AS review_count,
+    SAFE_CAST(review_count AS INT64) AS review_count,
     category_name AS category,
     platform,
     scraped_at
