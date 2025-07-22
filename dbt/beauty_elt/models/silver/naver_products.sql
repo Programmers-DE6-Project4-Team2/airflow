@@ -13,7 +13,7 @@ WITH ranked AS (
 )
 
 SELECT
-    product_id,
+    CAST(product_id AS STRING) AS product_id,
     name,
     brand,
     price,

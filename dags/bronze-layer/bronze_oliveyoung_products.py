@@ -31,7 +31,7 @@ with DAG(
 
         bucket_name = "de6-ez2"
         prefix = "raw-data/olive-young/products/"
-        search_prefix = f"{prefix}{year}/{month}/{day}/"  # ✅ 정확한 경로만 조회
+        search_prefix = f"{prefix}{year}/{month}/{day}/"  # 정확한 경로만 조회
 
         gcs_hook = GCSHook(gcp_conn_id="google_cloud_default")
         bq_hook = BigQueryHook(gcp_conn_id="google_cloud_default")

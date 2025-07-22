@@ -7,6 +7,9 @@ from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from google.cloud import bigquery
 from airflow.utils.dates import days_ago
 
+import time
+import random
+
 default_args = {
     "owner": "h2k997183@gmail.com",
     "retries": 1,
@@ -16,7 +19,7 @@ default_args = {
 with DAG(
     dag_id="bronze_naver_products",
     start_date=days_ago(1),
-    schedule_interval="0 2 * * *",
+    schedule_interval="0 3 * * *",
     catchup=True,
     default_args=default_args,
     description="Load Naver product CSVs from GCS to BigQuery Bronze in a single batch",

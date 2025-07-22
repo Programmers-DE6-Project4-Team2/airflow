@@ -7,6 +7,9 @@ from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from google.cloud import bigquery
 
+import time
+import random
+
 default_args = {
     "owner": "h2k997183@gmail.com",
     "retries": 1,
@@ -89,7 +92,7 @@ with DAG(
                     "allowQuotedNewlines": job_config.allow_quoted_newlines,
                     "schema": {
                         "fields": [field.to_api_repr() for field in job_config.schema]
-                    }
+                    } 
                 }
             },
             project_id="de6-2ez"
