@@ -1,9 +1,9 @@
-from airflow import DAG
-from airflow.utils.dates import days_ago
-from airflow.operators.python import PythonOperator
-
-from google.cloud import storage, bigquery
 from datetime import timedelta
+from airflow import DAG
+from airflow.decorators import task
+from airflow.utils.dates import days_ago
+from airflow.providers.google.cloud.hooks.gcs import GCSHook
+from google.cloud import bigquery
 
 default_args = {
     "owner": "h2k997183@gmail.com",
@@ -12,49 +12,56 @@ default_args = {
 }
 
 with DAG(
-    dag_id="bronze_musinsa_reviews",
+    dag_id="bronze_musinsa_products",
     start_date=days_ago(1),
-    schedule_interval="@daily",
-    catchup=False,
+    schedule_interval="0 4 * * *",  # 2시 실행
+    catchup=True,
     default_args=default_args,
-    description="Load Musinsa review CSVs from GCS to BigQuery Bronze",
-    tags=["bronze", "musinsa", "reviews"],
+    description="Load Musinsa product CSVs from GCS to BigQuery Bronze in a single batch",
+    tags=["bronze", "musinsa", "products"],
+    max_active_tasks=1,
 ) as dag:
 
-    def load_csvs_to_bq(**context):
-        # GCS 및 BigQuery 클라이언트 생성
-        gcs_client = storage.Client()
-        bq_client = bigquery.Client()
+    @task
+    def list_product_csv_files(execution_date=None):
+        execution_date = execution_date.in_timezone("Asia/Seoul")
+        year = execution_date.strftime("%Y")
+        month = execution_date.strftime("%m")
+        day = execution_date.strftime("%d")
 
-        # GCS 버킷 및 경로
-        bucket_name = "bronze-layer-example"
-        bucket = gcs_client.bucket(bucket_name)
-        prefix = "musinsa/reviews/"
+        bucket_name = "de6-ez2"
+        prefix = f"raw-data/musinsa/products/"
+        target_path = f"{prefix}{year}/{month}/{day}/"
 
-        # 리뷰 CSV 파일 목록 가져오기
-        blobs = list(bucket.list_blobs(prefix=prefix))
-        file_list = [b.name for b in blobs if b.name.endswith(".csv")]
+        gcs_hook = GCSHook(gcp_conn_id="google_cloud_default")
+        blobs = gcs_hook.list(bucket_name=bucket_name, prefix=target_path)
 
-        print(f"[musinsa_reviews] Found {len(file_list)} file(s):")
-        
-        table_id = "final-project-practice-465301.bronze.musinsa_reviews"
+        file_list = [b for b in blobs if b.endswith(".csv")]
+        print(f"✅ Found {len(file_list)} MUSINSA product files under {target_path}")
+        return file_list
 
+    @task
+    def load_csvs_to_bq(blob_list: list[str]):
+        uris = [f"gs://de6-ez2/{blob}" for blob in blob_list]
+        print(f"📦 Loading {len(uris)} files to BigQuery...")
+
+        bq_client = bigquery.Client(project="de6-2ez")
         job_config = bigquery.LoadJobConfig(
             source_format=bigquery.SourceFormat.CSV,
             skip_leading_rows=1,
-            autodetect=True,
             write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+            allow_quoted_newlines=True,
+            autodetect=True,
         )
 
-        for file_name in file_list:
-            gcs_uri = f"gs://{bucket_name}/{file_name}"
-            load_job = bq_client.load_table_from_uri(
-                gcs_uri, table_id, job_config=job_config
-            )
-            load_job.result()  # 완료 대기
-            print(f"[musinsa_reviews] Loaded: {gcs_uri}")
+        load_job = bq_client.load_table_from_uri(
+            source_uris=uris,
+            destination="de6-2ez.bronze.musinsa_products",
+            job_config=job_config,
+        )
+        load_job.result()
+        print(f"✅ Successfully loaded {len(uris)} files into BigQuery")
 
-    load_task = PythonOperator(
-        task_id="load_csvs_to_bq",
-        python_callable=load_csvs_to_bq,
-    )
+    file_list = list_product_csv_files()
+    load_csvs_to_bq(file_list)
+
