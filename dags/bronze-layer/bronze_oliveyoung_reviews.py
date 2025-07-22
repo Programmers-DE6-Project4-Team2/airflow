@@ -5,8 +5,6 @@ from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.dates import days_ago
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
 from google.cloud import bigquery
-import time
-import random
 
 default_args = {
     "owner": "h2k997183@gmail.com",
@@ -20,9 +18,9 @@ with DAG(
     schedule_interval="0 4 * * *",
     catchup=True,
     default_args=default_args,
-    description="Load OliveYoung review CSVs from GCS to BigQuery Bronze using dynamic task mapping",
+    description="Load OliveYoung review CSVs from GCS to BigQuery Bronze in a single batch",
     tags=["bronze", "oliveyoung", "reviews"],
-    max_active_tasks=20,  # 병렬 task 수 제한
+    max_active_tasks=1,  # 한 번에 하나의 배치 작업만 실행
 ) as dag:
 
     @task
@@ -41,13 +39,13 @@ with DAG(
 
         file_list = [b for b in blobs if b.endswith(".csv")]
         print(f"✅ Found {len(file_list)} review files under {prefix}")
-        return file_list  # XCom으로 리스트 반환
+        return file_list
 
     @task
-    def load_csv_to_bq(blob_name: str):
-        """각 CSV 파일을 BigQuery에 적재"""
-        bucket_name = "de6-ez2"
-        gcs_uri = f"gs://{bucket_name}/{blob_name}"
+    def load_csvs_to_bq(blob_list: list[str]):
+        """여러 리뷰 CSV 파일을 한 번에 BigQuery에 적재"""
+        uris = [f"gs://de6-ez2/{blob}" for blob in blob_list]
+        print(f"📦 Loading {len(uris)} files to BigQuery...")
 
         bq_client = bigquery.Client(project="de6-2ez")
         job_config = bigquery.LoadJobConfig(
@@ -59,23 +57,21 @@ with DAG(
         )
 
         load_job = bq_client.load_table_from_uri(
-            source_uris=gcs_uri,
+            source_uris=uris,
             destination="de6-2ez.bronze.oliveyoung_reviews",
             job_config=job_config,
         )
         load_job.result()
-        print(f"✅ Loaded to BigQuery: {gcs_uri}")
+        print(f"✅ Successfully loaded {len(uris)} files into BigQuery")
 
-        time.sleep(random.uniform(1.5, 2.5))  # GCP rate limit 방지용 delay
-
-    # 1. GCS 경로 수집 → 2. 파일별 BQ 적재 (동적 Task Mapping) → 3. dbt 트리거
     file_list = list_review_csv_files()
-    load_csv_to_bq.expand(blob_name=file_list)
+    load_csvs_to_bq(file_list)
 
-    #trigger_dbt = TriggerDagRunOperator(
-    #    task_id="trigger_silver_oliveyoung_review_dbt",
-    #    trigger_dag_id="silver_oliveyoung_review_dbt",
-    #    wait_for_completion=False,
-    #)
+    # dbt trigger 예: 나중에 사용하려면 여기에 연결
+    # trigger_dbt = TriggerDagRunOperator(
+    #     task_id="trigger_silver_oliveyoung_review_dbt",
+    #     trigger_dag_id="silver_oliveyoung_review_dbt",
+    #     wait_for_completion=False,
+    # )
 
-    file_list >> load_csv_to_bq.expand(blob_name=file_list)
+    # file_list >> trigger_dbt  ← 추후 필요시 연결

@@ -1,11 +1,9 @@
-from airflow import DAG
-from airflow.utils.dates import days_ago
-from airflow.operators.python import PythonOperator
-
-from google.cloud import storage, bigquery
-import pandas as pd
-import io
 from datetime import timedelta
+from airflow import DAG
+from airflow.decorators import task
+from airflow.utils.dates import days_ago
+from airflow.providers.google.cloud.hooks.gcs import GCSHook
+from google.cloud import bigquery
 
 default_args = {
     "owner": "h2k997183@gmail.com",
@@ -14,52 +12,58 @@ default_args = {
 }
 
 with DAG(
-    dag_id="bronze_naver_reviews",  # DAG ID 수정
+    dag_id="bronze_naver_products",
     start_date=days_ago(1),
-    schedule_interval="@daily",
-    catchup=False,
+    schedule_interval="0 4 * * *",  # 3시 실행
+    catchup=True,
     default_args=default_args,
-    description="Load Naver review CSVs from GCS to BigQuery Bronze", 
-    tags=["bronze", "naver", "reviews"], 
+    description="Load Naver Beauty product CSVs from GCS to BigQuery Bronze in a single batch",
+    tags=["bronze", "naver", "products"],
+    max_active_tasks=1,
 ) as dag:
 
-    def load_csvs_to_bq(**context):
-        # GCS 및 BigQuery 클라이언트 생성
-        gcs_client = storage.Client()
-        bq_client = bigquery.Client()
+    @task
+    def list_product_csv_files(execution_date=None):
+        execution_date = execution_date.in_timezone("Asia/Seoul")
+        year = execution_date.strftime("%Y")
+        month = execution_date.strftime("%m")
+        day = execution_date.strftime("%d")
 
-        # GCS 버킷 및 네이버 리뷰 경로
-        bucket = gcs_client.bucket("bronze-layer-example")
-        prefix = "naver/reviews/"  # 경로 수정
+        bucket_name = "de6-ez2"
+        prefix = f"raw-data/naver/products/"
+        target_path = f"{prefix}{year}/{month}/{day}/"
 
-        # 리뷰 CSV 파일 목록 가져오기
-        blobs = list(bucket.list_blobs(prefix=prefix))
-        file_list = [b.name for b in blobs if b.name.endswith(".csv")]
+        gcs_hook = GCSHook(gcp_conn_id="google_cloud_default")
+        blobs = gcs_hook.list(bucket_name=bucket_name, prefix=target_path)
 
-        print(f"[naver_reviews] Found {len(file_list)} file(s):")
-        for file_name in file_list:
-            blob = bucket.blob(file_name)
-            content = blob.download_as_text(encoding="utf-8")
-            df = pd.read_csv(io.StringIO(content))
+        file_list = [b for b in blobs if b.endswith(".csv")]
+        print(f"✅ Found {len(file_list)} NAVER product files under {target_path}")
+        return file_list
 
-            # 컬럼명: 소문자 + 점 제거
-            df.columns = [col.lower().replace(".", "_") for col in df.columns]
+    @task
+    def load_csvs_to_bq(blob_list: list[str]):
+        """여러 리뷰 CSV 파일을 한 번에 BigQuery에 적재"""
+        uris = [f"gs://de6-ez2/{blob}" for blob in blob_list]
+        print(f"📦 Loading {len(uris)} files to BigQuery...")
 
-            # BigQuery 테이블 ID 설정
-            table_id = "final-project-practice-465301.bronze.naver_reviews"  # 테이블 수정
+        bq_client = bigquery.Client(project="de6-2ez")
+        job_config = bigquery.LoadJobConfig(
+            source_format=bigquery.SourceFormat.CSV,
+            skip_leading_rows=1,
+            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+            allow_quoted_newlines=True,
+            autodetect=True,
+        )
 
-            # BigQuery 적재 설정
-            job_config = bigquery.LoadJobConfig(
-                write_disposition="WRITE_APPEND",
-                autodetect=True,
-            )
+        load_job = bq_client.load_table_from_uri(
+            source_uris=uris,
+            destination="de6-2ez.bronze.naver_products",
+            job_config=job_config,
+        )
+        load_job.result()
+        print(f"✅ Successfully loaded {len(uris)} files into BigQuery")
 
-            # 데이터 적재
-            bq_client.load_table_from_dataframe(df, table_id, job_config=job_config).result()
-            print(f"[naver_reviews] Loaded {len(df)} rows from {file_name} to {table_id}")
+    file_list = list_product_csv_files()
+    load_csvs_to_bq(file_list)
 
-    load_task = PythonOperator(
-        task_id="load_csvs_to_bq",
-        python_callable=load_csvs_to_bq,
-    )
 
