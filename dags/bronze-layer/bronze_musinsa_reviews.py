@@ -12,7 +12,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id="bronze_musinsa_reviews",
+    dag_id="bronze_musinsa_products",
     start_date=days_ago(1),
     schedule_interval="0 4 * * *",  # 2시 실행
     catchup=True,
