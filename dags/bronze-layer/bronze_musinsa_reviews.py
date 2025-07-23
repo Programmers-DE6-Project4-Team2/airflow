@@ -106,7 +106,7 @@ with DAG(
                 bigquery.SchemaField("orderOptionNo", "INTEGER"),
                 bigquery.SchemaField("channelSource", "STRING"),
                 bigquery.SchemaField("channelSourceName", "STRING"),
-                bigquery.SchemaField("channelActivityId", "STRING"), ###
+                bigquery.SchemaField("channelActivityId", "STRING"), 
                 bigquery.SchemaField("relatedNo", "INTEGER"),
                 bigquery.SchemaField("isFirstReview", "INTEGER"),
                 bigquery.SchemaField("reviewProfileTypeEnum", "STRING"),
