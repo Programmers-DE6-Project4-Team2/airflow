@@ -21,7 +21,7 @@ SELECT
     discount_rate,
     rating,
     review_count,
-    likes,
+    CAST(likes AS STRING) AS likes,
     image_url,
     product_url,
     number_of_views,

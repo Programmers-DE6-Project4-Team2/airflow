@@ -50,7 +50,7 @@ SELECT
     images,
     likeCount,
     userReactionType,
-    createDate
+    createDate,
     goodsThumbnailImageUrl,
     userId,
     encryptedUserId AS user_id,
@@ -68,7 +68,7 @@ SELECT
     orderOptionNo,
     channelSource,
     channelSourceName,
-    channelActivityId,
+    channelActivityId,      업로드하기
     relatedNo,
     isFirstReview AS is_first_review,
     reviewProfileTypeEnum AS profile_type,
