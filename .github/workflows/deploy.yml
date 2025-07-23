@@ -79,9 +79,10 @@ jobs:
               git fetch origin
               git reset --hard origin/main
           
-              echo '🔑 Fixing file permissions...'
-              sudo chown -R airflow:airflow . || true
-              chmod -R u+w . || true
+              echo '🔧 Fixing permissions for Airflow containers...'
+              sudo chown -R airflow:airflow logs/ || true
+              sudo chown -R airflow:airflow dbt/target/ || true
+              sudo chown -R airflow:airflow dbt/dbt_packages/ || true
 
               echo '✅ Deployment completed successfully'
             "
