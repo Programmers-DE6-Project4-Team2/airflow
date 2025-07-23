@@ -81,7 +81,7 @@ x-airflow-common:
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
   volumes:
-    - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
+    - git-sync-volume:/opt/airflow/dags                   # Git에서 동기화된 DAG들
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
@@ -135,21 +135,25 @@ services:
       start_period: 30s
     restart: always
 
+  git-sync:
+    image: k8s.gcr.io/git-sync/git-sync:v3.6.3
+    environment:
+      GIT_SYNC_REPO: ${GIT_SYNC_REPO:-https://github.com/Programmers-DE6-Project4-Team2/airflow.git}
+      GIT_SYNC_DEST: /git
+      GIT_SYNC_BRANCH: ${GIT_SYNC_BRANCH:-main}
+      GIT_SYNC_WAIT: 60
+      GIT_SYNC_ROOT: /git
+      GIT_SYNC_PERMISSIONS: 0755
+      GIT_SYNC_SUBPATH: dags
+    volumes:
+      - git-sync-volume:/git
+    networks:
+      - airflow
+    restart: always
+
   airflow-webserver:
     <<: *airflow-common
-    command:
-      - /bin/bash
-      - -c
-      - |
-        # GCS 동기화를 백그라운드에서 실행
-        (while true; do
-          echo "📥 Syncing DAGs from GCS..."
-          gsutil -m rsync -d -r gs://de6-ez2/dags /opt/airflow/dags || echo "GCS sync failed, continuing..."
-          sleep 300
-        done) &
-        
-        # Airflow 웹서버 시작
-        airflow webserver
+    command: webserver
     ports:
       - "8080:8080"
     healthcheck:
@@ -166,19 +170,7 @@ services:
 
   airflow-scheduler:
     <<: *airflow-common
-    command:
-      - /bin/bash
-      - -c
-      - |
-        # GCS 동기화를 백그라운드에서 실행
-        (while true; do
-          echo "📥 Syncing DAGs from GCS..."
-          gsutil -m rsync -d -r gs://de6-ez2/dags /opt/airflow/dags || echo "GCS sync failed, continuing..."
-          sleep 300
-        done) &
-        
-        # Airflow 스케줄러 시작
-        airflow scheduler
+    command: scheduler
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s
@@ -193,19 +185,7 @@ services:
 
   airflow-worker:
     <<: *airflow-common
-    command:
-      - /bin/bash
-      - -c
-      - |
-        # GCS 동기화를 백그라운드에서 실행
-        (while true; do
-          echo "📥 Syncing DAGs from GCS..."
-          gsutil -m rsync -d -r gs://de6-ez2/dags /opt/airflow/dags || echo "GCS sync failed, continuing..."
-          sleep 300
-        done) &
-        
-        # Airflow 워커 시작
-        airflow celery worker
+    command: celery worker
     healthcheck:
       # yamllint disable rule:line-length
       test:
@@ -228,19 +208,7 @@ services:
 
   airflow-triggerer:
     <<: *airflow-common
-    command:
-      - /bin/bash
-      - -c
-      - |
-        # GCS 동기화를 백그라운드에서 실행
-        (while true; do
-          echo "📥 Syncing DAGs from GCS..."
-          gsutil -m rsync -d -r gs://de6-ez2/dags /opt/airflow/dags || echo "GCS sync failed, continuing..."
-          sleep 300
-        done) &
-        
-        # Airflow 트리거러 시작
-        airflow triggerer
+    command: triggerer
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
       interval: 30s
@@ -354,6 +322,7 @@ services:
 
 volumes:
   postgres-db-volume:
+  git-sync-volume:
 
 networks:
   airflow:
