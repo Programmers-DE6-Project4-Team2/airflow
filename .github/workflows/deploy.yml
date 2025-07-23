@@ -81,8 +81,12 @@ jobs:
           
               echo '🔧 Fixing permissions for Airflow containers...'
               sudo chown -R airflow:airflow logs/ || true
-              sudo chown -R airflow:airflow dbt/target/ || true
-              sudo chown -R airflow:airflow dbt/dbt_packages/ || true
+              sudo chown -R airflow:airflow dags/ || true
+              sudo chown -R airflow:airflow plugins/ || true
+              sudo chown -R airflow:airflow config/ || true
+              sudo chown -R airflow:airflow dbt/ || true
+              sudo chmod -R 755 logs/ || true
+              sudo chmod -R 755 dbt/ || true
 
               echo '✅ Deployment completed successfully'
             "
