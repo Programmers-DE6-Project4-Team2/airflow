@@ -3,6 +3,7 @@ from airflow import DAG
 from airflow.decorators import task
 from airflow.utils.dates import days_ago
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from google.cloud import bigquery
 
 default_args = {
@@ -14,7 +15,7 @@ default_args = {
 with DAG(
     dag_id="bronze_musinsa_reviews",
     start_date=days_ago(1),
-    schedule_interval="0 4 * * *",  # 2시 실행
+    schedule_interval="30 14 * * *",  # 23시 30분 실행
     catchup=True,
     default_args=default_args,
     description="Load Musinsa review CSVs from GCS to BigQuery Bronze in a single batch",
@@ -106,7 +107,7 @@ with DAG(
                 bigquery.SchemaField("orderOptionNo", "INTEGER"),
                 bigquery.SchemaField("channelSource", "STRING"),
                 bigquery.SchemaField("channelSourceName", "STRING"),
-                bigquery.SchemaField("channelActivityId", "STRING"), 
+                bigquery.SchemaField("channelActivityId", "STRING"),
                 bigquery.SchemaField("relatedNo", "INTEGER"),
                 bigquery.SchemaField("isFirstReview", "INTEGER"),
                 bigquery.SchemaField("reviewProfileTypeEnum", "STRING"),
@@ -127,5 +128,12 @@ with DAG(
         print(f"✅ Successfully loaded {len(uris)} files into BigQuery")
 
     file_list = list_product_csv_files()
-    load_csvs_to_bq(file_list)
+    load_task = load_csvs_to_bq(file_list)
 
+    trigger_dbt = TriggerDagRunOperator(
+        task_id="trigger_silver_musinsa_review_dbt",
+        trigger_dag_id="silver_musinsa_review_dbt",
+        wait_for_completion=False,
+    )
+
+    load_task >> trigger_dbt

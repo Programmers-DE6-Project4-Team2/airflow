@@ -15,7 +15,7 @@ default_args = {
 with DAG(
     dag_id="bronze_oliveyoung_reviews",
     start_date=days_ago(1),
-    schedule_interval="0 4 * * *",
+    schedule_interval="30 14 * * *", # 23시 30분 실행
     catchup=True,
     default_args=default_args,
     description="Load OliveYoung review CSVs from GCS to BigQuery Bronze in a single batch",
@@ -65,13 +65,13 @@ with DAG(
         print(f"✅ Successfully loaded {len(uris)} files into BigQuery")
 
     file_list = list_review_csv_files()
-    load_csvs_to_bq(file_list)
+    load_task = load_csvs_to_bq(file_list)
 
     # dbt trigger 예: 나중에 사용하려면 여기에 연결
-    # trigger_dbt = TriggerDagRunOperator(
-    #     task_id="trigger_silver_oliveyoung_review_dbt",
-    #     trigger_dag_id="silver_oliveyoung_review_dbt",
-    #     wait_for_completion=False,
-    # )
+    trigger_dbt = TriggerDagRunOperator(
+        task_id="trigger_silver_oliveyoung_review_dbt",
+        trigger_dag_id="silver_oliveyoung_review_dbt",
+        wait_for_completion=False,
+    )
 
-    # file_list >> trigger_dbt  ← 추후 필요시 연결
+    load_task >> trigger_dbt
