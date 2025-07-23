@@ -28,7 +28,7 @@ WITH unified_reviews AS (
     product_id,
     SAFE_CAST(rating AS INT64) AS star,
     content,
-    PARSE_DATE('%y.%m.%d', created_at) AS created_at,
+    PARSE_DATE('%y.%m.%d', REGEXP_REPLACE(created_at, r'\.$', '')) AS created_at,
     category AS category,
     platform,
     scraped_at
