@@ -8,19 +8,19 @@ WITH ranked AS (
     SELECT
         *,
         ROW_NUMBER() OVER (
-            PARTITION BY no
+            PARTITION BY `no`
             ORDER BY scraped_at DESC
         ) AS row_num
     FROM {{ source('bronze', 'musinsa_reviews') }}
 )
 
 SELECT
-    CAST(no AS STRING) AS review_id,
+    CAST(`no` AS STRING) AS review_id,
     CAST(product_id AS STRING) AS product_id,
     category_code,
     category_name,
     type,
-    typeName
+    typeName,
     subType,
     content,
     commentCount,
