@@ -13,7 +13,7 @@ WITH unified_reviews AS (
     product_id,
     CAST(REGEXP_EXTRACT(star, r'(\d+)점$') AS INT64) AS star,
     review AS content,
-    PARSE_DATE('%Y.%m.%d', date) AS created_at,
+    FORMAT_DATE('%Y.%m.%d', SAFE.PARSE_DATE('%Y.%m.%d', date)) AS created_at,
     category_name AS category,
     platform,
     scraped_at
@@ -26,9 +26,9 @@ WITH unified_reviews AS (
     CONCAT('naver_', review_id) AS review_uid,
     review_id,
     product_id,
-    CAST(rating AS INT64) AS star,
+    SAFE_CAST(rating AS INT64) AS star,
     content,
-    PARSE_DATE('%y.%m.%d', created_at) AS created_at,
+    FORMAT_DATE('%Y.%m.%d', SAFE.PARSE_DATE('%y.%m.%d', created_at)) AS created_at,
     category AS category,
     platform,
     scraped_at
@@ -39,11 +39,11 @@ WITH unified_reviews AS (
   -- ✅ Musinsa
   SELECT
     CONCAT('musinsa_', review_id) AS review_uid,
-    CAST(no AS STRING) AS review_id,
-    CAST(product_id AS STRING) AS product_id,
-    CAST(grade AS INT64) AS star,
+    review_id,
+    product_id,
+    SAFE_CAST(grade AS INT64) AS star,
     content,
-    DATE(createDate) AS created_at,
+    FORMAT_DATE('%Y.%m.%d', DATE(createDate)) AS created_at,
     category_name AS category,
     platform,
     scraped_at
@@ -53,7 +53,7 @@ WITH unified_reviews AS (
 
 SELECT *
 FROM unified_reviews
-
+WHERE 1=1
 {% if is_incremental() %}
-WHERE scraped_at > (SELECT MAX(scraped_at) FROM {{ this }})
+  AND scraped_at > (SELECT MAX(scraped_at) FROM {{ this }})
 {% endif %}
