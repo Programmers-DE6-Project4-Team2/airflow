@@ -89,12 +89,18 @@ jobs:
               sudo chmod -R 755 dbt/ || true
 
               echo '🔧 Fixing Docker container internal permissions...'
-              docker exec -u root airflow-airflow-webserver-1 chown -R airflow:airflow /opt/airflow/dbt/beauty_elt/logs || true
-              docker exec -u root airflow-airflow-webserver-1 chown -R airflow:airflow /opt/airflow/dbt/beauty_elt/target || true
-              docker exec -u root airflow-airflow-scheduler-1 chown -R airflow:airflow /opt/airflow/dbt/beauty_elt/logs || true
-              docker exec -u root airflow-airflow-scheduler-1 chown -R airflow:airflow /opt/airflow/dbt/beauty_elt/target || true
-              docker exec -u root airflow-airflow-worker-1 chown -R airflow:airflow /opt/airflow/dbt/beauty_elt/logs || true
-              docker exec -u root airflow-airflow-worker-1 chown -R airflow:airflow /opt/airflow/dbt/beauty_elt/target || true
+              docker exec -u root airflow-airflow-webserver-1 chown -R airflow:root /opt/airflow/dags || true
+              docker exec -u root airflow-airflow-webserver-1 chown -R airflow:root /opt/airflow/logs || true
+              docker exec -u root airflow-airflow-webserver-1 chown -R airflow:root /opt/airflow/dbt || true
+              docker exec -u root airflow-airflow-scheduler-1 chown -R airflow:root /opt/airflow/dags || true
+              docker exec -u root airflow-airflow-scheduler-1 chown -R airflow:root /opt/airflow/logs || true
+              docker exec -u root airflow-airflow-scheduler-1 chown -R airflow:root /opt/airflow/dbt || true
+              docker exec -u root airflow-airflow-worker-1 chown -R airflow:root /opt/airflow/dags || true
+              docker exec -u root airflow-airflow-worker-1 chown -R airflow:root /opt/airflow/logs || true
+              docker exec -u root airflow-airflow-worker-1 chown -R airflow:root /opt/airflow/dbt || true
+              
+              echo '🔄 Restarting Airflow scheduler to rescan DAGs...'
+              docker restart airflow-airflow-scheduler-1 || true
 
               echo '✅ Deployment completed successfully'
             "
