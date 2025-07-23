@@ -8,8 +8,17 @@ sources:
       - name: naver_products
         description: "네이버 상품 데이터 (원천 bronze)"
 
+      - name: naver_reviews
+        description: "네이버 리뷰 데이터 (원천 bronze)"
+
       - name: oliveyoung_products
         description: "올리브영 상품 데이터 (원천 bronze)"
 
+      - name: oliveyoung_reviews
+        description: "올리브영 리뷰 데이터 (원천 bronze)"
+
       - name: musinsa_products
-        description: "네이버 상품 데이터 (원천 bronze)"
+        description: "무신사 상품 데이터 (원천 bronze)"
+
+      - name: musinsa_reviews
+        description: "무신사 리뷰 데이터 (원천 bronze)"
