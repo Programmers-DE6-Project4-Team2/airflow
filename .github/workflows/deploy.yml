@@ -1,10 +1,8 @@
-name: Upload DAGs to GCS
+name: Deploy Airflow to GCP VM
 
 on:
   push:
     branches: [main]
-    paths:
-      - 'dags/**'  # dags 폴더 안의 파일이 변경되었을 때만 트리거
 
 jobs:
   deploy:
@@ -23,8 +21,89 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Upload DAGs to GCS
+      - name: Verify authentication
         run: |
-          echo "📤 Uploading DAGs to GCS..."
-          gsutil -m cp -r dags/* gs://de6-ez2/dags/
-          echo "✅ DAGs uploaded successfully"
+          gcloud auth list
+          gcloud config list project
+          echo "✅ Authentication successful"
+
+      - name: Configure SSH key
+        run: |
+          echo "SSH key configuration completed"
+
+      - name: Deploy to VM
+        run: |
+          gcloud compute instances describe de6-ez2-airflow \
+            --zone=asia-northeast3-c \
+            --project=de6-2ez \
+            --format='get(status)' > vm_status.txt
+
+          VM_STATUS=$(cat vm_status.txt)
+          echo "VM Status: $VM_STATUS"
+
+          if [ "$VM_STATUS" != "RUNNING" ]; then
+            echo "Starting VM instance..."
+            gcloud compute instances start de6-ez2-airflow \
+              --zone=asia-northeast3-c \
+              --project=de6-2ez
+
+            echo "Waiting for VM to be ready..."
+            for i in {1..12}; do
+              STATUS=$(gcloud compute instances describe de6-ez2-airflow \
+                --zone=asia-northeast3-c \
+                --project=de6-2ez \
+                --format='get(status)')
+              if [ "$STATUS" = "RUNNING" ]; then
+                echo "✅ VM is now running"
+                break
+              fi
+              echo "⏳ VM starting... ($i/12)"
+              sleep 5
+            done
+          fi
+
+          gcloud compute ssh airflow@de6-ez2-airflow \
+            --zone=asia-northeast3-c \
+            --project=de6-2ez \
+            --ssh-flag="-o StrictHostKeyChecking=no" \
+            --command="
+              set -e
+              echo '🚀 Starting deployment process...'
+              cd /home/airflow/airflow || { echo 'Directory not found'; exit 1; }
+
+              echo '🔑 Fixing file permissions...'
+              sudo chown -R airflow:airflow . || true
+              chmod -R u+w . || true
+
+              echo '📦 Updating code from Git...'
+              git fetch origin
+              git reset --hard origin/main
+
+              echo '✅ Deployment completed successfully'
+            "
+            
+      - name: Health Check
+        run: |
+          VM_IP=$(gcloud compute instances describe de6-ez2-airflow \
+            --zone=asia-northeast3-c \
+            --project=de6-2ez \
+            --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+
+          echo "VM External IP: $VM_IP"
+          echo "🔍 Checking Airflow webserver health..."
+
+          for i in {1..10}; do
+            if curl -f -s --connect-timeout 5 "http://$VM_IP:8080/health" > /dev/null 2>&1; then
+              echo "✅ Airflow webserver is healthy!"
+              echo "🎉 Deployment successful!"
+              echo "🌐 Airflow UI: http://$VM_IP:8080"
+              echo "👤 Default login: airflow / airflow"
+              exit 0
+            else
+              echo "⏳ Attempt $i/10: Airflow not ready yet, waiting 10s..."
+              sleep 10
+            fi
+          done
+
+          echo "❌ Health check failed - Airflow webserver not responding"
+          exit 1
