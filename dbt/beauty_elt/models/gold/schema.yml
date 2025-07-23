@@ -36,3 +36,46 @@ models:
 
       - name: scraped_at
         description: "해당 상품이 수집된 시각 (UTC)"
+
+  - name: fact_reviews
+    description: "플랫폼별 실버 리뷰 데이터를 통합한 골드 계층 리뷰 테이블"
+    columns:
+      - name: review_uid
+        description: "플랫폼 + review_id를 조합한 유일 식별자 (예: musinsa_987654)"
+        tests:
+          - unique
+          - not_null
+
+      - name: review_id
+        description: "원본 플랫폼에서의 리뷰 ID"
+        tests:
+          - not_null
+
+      - name: product_id
+        description: "해당 리뷰가 작성된 상품의 ID (원본 기준)"
+        tests:
+          - not_null
+
+      - name: star
+        description: "리뷰 별점 (정수형 0~5점으로 통일)"
+
+      - name: content
+        description: "리뷰 본문 텍스트"
+
+      - name: created_at
+        description: "리뷰 작성일 (DATE 형식: yyyy-mm-dd)"
+        tests:
+          - not_null
+
+      - name: category
+        description: "해당 리뷰 상품의 카테고리명"
+
+      - name: platform
+        description: "리뷰가 수집된 플랫폼명 (예: oliveyoung, naver, musinsa)"
+        tests:
+          - not_null
+
+      - name: scraped_at
+        description: "해당 리뷰가 수집된 시각 (UTC)"
+        tests:
+          - not_null
