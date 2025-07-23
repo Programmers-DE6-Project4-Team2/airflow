@@ -12,6 +12,36 @@ models:
       - name: brand
         description: "브랜드명"
 
+  - name: naver_reviews  
+    description: "네이버 뷰티 리뷰 데이터 (silver)"
+    columns:
+      - name: review_id
+        description: "리뷰 고유 ID"
+        tests:
+          - unique
+          - not_null
+
+      - name: product_id
+        description: "상품 고유 ID"
+        tests:
+          - not_null
+
+      - name: scraped_at
+        description: "리뷰 데이터가 수집된 시점"
+
+      - name: rating
+        description: "사용자 평점"
+
+      - name: content
+        description: "리뷰 본문"
+
+      - name: username
+        description: "작성자 이름 또는 아이디"
+
+      - name: platform
+        description: "데이터 출처 플랫폼명 (네이버)"
+
+
   - name: oliveyoung_products
     description: "올리브영 뷰티 상품 데이터 (silver)"
     columns:
@@ -28,6 +58,29 @@ models:
         description: "평점 (0~5 float)"
       - name: category
         description: "카테고리명"
+
+  
+  - name: oliveyoung_reviews
+    description: "올리브영 뷰티 리뷰 데이터 (silver)"
+    columns:
+      - name: review_id
+        description: "리뷰 고유 ID"
+        tests:
+          - unique
+          - not_null
+
+      - name: scraped_at
+        description: "리뷰 데이터가 수집된 시점"
+
+      - name: review
+        description: "리뷰 본문"
+
+      - name: star
+        description: "별점 (문자열 형식일 수 있음)"
+
+      - name: platform
+        description: "데이터 출처 플랫폼명 (올리브영)"
+
 
   - name: musinsa_products
     description: "무신사 뷰티 상품 데이터 (silver)"
@@ -69,3 +122,27 @@ models:
         description: "카테고리 코드"
       - name: platform
         description: "'무신사' 고정 값"
+
+  - name: musinsa_reviews
+    description: "무신사 뷰티 리뷰 데이터 (silver)"
+    columns:
+      - name: review_id
+        description: "리뷰 고유 ID"
+        tests:
+          - unique
+          - not_null
+
+      - name: product_id
+        description: "상품 고유 ID"
+
+      - name: scraped_at
+        description: "리뷰 데이터가 수집된 시점"
+
+      - name: content
+        description: "리뷰 본문"
+
+      - name: grade
+        description: "리뷰 평점"
+
+      - name: platform
+        description: "데이터 출처 플랫폼명 (무신사)"
