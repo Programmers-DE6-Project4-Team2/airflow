@@ -68,7 +68,7 @@ SELECT
     orderOptionNo,
     channelSource,
     channelSourceName,
-    channelActivityId,      업로드하기
+    channelActivityId,     
     relatedNo,
     isFirstReview AS is_first_review,
     reviewProfileTypeEnum AS profile_type,
