@@ -15,7 +15,7 @@ default_args = {
 with DAG(
     dag_id="bronze_oliveyoung_reviews",
     start_date=days_ago(1),
-    schedule_interval="0 4 * * *",
+    schedule_interval="30 14 * * *", # 23시 30분 실행
     catchup=True,
     default_args=default_args,
     description="Load OliveYoung review CSVs from GCS to BigQuery Bronze in a single batch",
@@ -94,3 +94,4 @@ with DAG(
     )
     
     load_task >> trigger_silver_dag
+    
