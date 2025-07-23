@@ -43,7 +43,6 @@ SELECT
     goods_goodsSex,
     goods_goodsSexClassification,
     goods_showSoldOut,
-    
     userImageFile,
     goodsOption,
     commentReplyCount,
@@ -55,7 +54,6 @@ SELECT
     goodsThumbnailImageUrl,
     userId,
     encryptedUserId AS user_id,
-
     userProfileInfo_userNickName,
     userProfileInfo_userLevel,
     userProfileInfo_userOutYn,
@@ -67,7 +65,6 @@ SELECT
     userProfileInfo_skinType AS skin_type,
     userProfileInfo_skinTone AS skin_tone,
     userProfileInfo_skinWorry AS skin_worry,
-
     orderOptionNo,
     channelSource,
     channelSourceName,
@@ -79,7 +76,6 @@ SELECT
     reviewerWeeklyRanking AS weekly_ranking,
     reviewerMonthlyRanking AS monthly_ranking,
     showUserProfile,
-
     scraped_at,
     '무신사' AS platform
 
