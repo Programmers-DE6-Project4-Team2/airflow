@@ -58,6 +58,7 @@ x-airflow-common:
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY:-''}
+    AIRFLOW__CORE__DAGS_FOLDER: ${AIRFLOW__CORE__DAGS_FOLDER:-/opt/airflow/dags}
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES:-'true'}
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
@@ -67,6 +68,8 @@ x-airflow-common:
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
     # yamllint enable rule:line-length
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    # 로그 서버 호스트 설정
+    AIRFLOW__LOGGING__WORKER_LOG_SERVER_HOST: 'localhost'
     # 보안 강화 설정
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: ${AIRFLOW__WEBSERVER__EXPOSE_CONFIG:-'False'}
     AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-''}
@@ -88,6 +91,8 @@ x-airflow-common:
     - /home/airflow/.dbt:/opt/airflow/.dbt                # dbt profiles
 
   user: "${AIRFLOW_UID:-50000}:0"
+  networks:
+    - airflow
   depends_on:
     &airflow-common-depends-on
     redis:
@@ -104,11 +109,14 @@ services:
       POSTGRES_DB: airflow
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+    networks:
+      - airflow
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
+      test: ["CMD", "pg_isready", "-U", "airflow", "-d", "airflow"]
       interval: 10s
-      retries: 5
-      start_period: 5s
+      retries: 10
+      start_period: 10s
+      timeout: 5s
     restart: always
 
   redis:
@@ -117,6 +125,8 @@ services:
     image: redis:7.2-bookworm
     expose:
       - 6379
+    networks:
+      - airflow
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -296,3 +306,7 @@ services:
 
 volumes:
   postgres-db-volume:
+
+networks:
+  airflow:
+    driver: bridge

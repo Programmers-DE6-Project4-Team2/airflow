@@ -7,6 +7,9 @@ from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from google.cloud import bigquery
 
+import time
+import random
+
 default_args = {
     "owner": "h2k997183@gmail.com",
     "retries": 1,
@@ -19,7 +22,7 @@ with DAG(
     schedule_interval="0 3 * * *",
     catchup=True,
     default_args=default_args,
-    description="Load Musinsa product CSVs from GCS to BigQuery Bronze",
+    description="Load Musinsa product CSVs from GCS to BigQuery Bronze (batch insert)",
     tags=["bronze", "musinsa", "products"],
 ) as dag:
 
@@ -31,7 +34,7 @@ with DAG(
 
         bucket_name = "de6-ez2"
         prefix = "raw-data/musinsa/products/"
-        search_prefix = f"{prefix}"
+        search_prefix = prefix  
 
         gcs_hook = GCSHook(gcp_conn_id="google_cloud_default")
         bq_hook = BigQueryHook(gcp_conn_id="google_cloud_default")
@@ -42,47 +45,73 @@ with DAG(
             if blob.endswith(".csv") and f"/{year}/{month}/{day}/" in blob
         ]
 
-        print(f"[musinsa_products] Found {len(file_list)} file(s) for {year}-{month}-{day}:")
+        if not file_list:
+            print(f"[musinsa_products] ❗ No CSV files found under {search_prefix}")
+            return
+
+        source_uris = [f"gs://{bucket_name}/{blob}" for blob in file_list]
+        print(f"[musinsa_products] ✅ Found {len(source_uris)} file(s) to load")
 
         job_config = bigquery.LoadJobConfig(
             source_format=bigquery.SourceFormat.CSV,
             skip_leading_rows=1,
             write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
             allow_quoted_newlines=True,
-            autodetect=True,
+            autodetect=False,
+            schema=[
+                bigquery.SchemaField("rank", "INTEGER"),
+                bigquery.SchemaField("name", "STRING"),
+                bigquery.SchemaField("brand", "STRING"),
+                bigquery.SchemaField("price", "INTEGER"),
+                bigquery.SchemaField("original_price", "INTEGER"),
+                bigquery.SchemaField("discount_rate", "INTEGER"),
+                bigquery.SchemaField("rating", "INTEGER"),
+                bigquery.SchemaField("review_count", "INTEGER"),
+                bigquery.SchemaField("likes", "STRING"),
+                bigquery.SchemaField("image_url", "STRING"),
+                bigquery.SchemaField("product_url", "STRING"),
+                bigquery.SchemaField("product_id", "INTEGER"),
+                bigquery.SchemaField("number_of_views", "INTEGER"),
+                bigquery.SchemaField("sales", "INTEGER"),
+                bigquery.SchemaField("scraped_at", "TIMESTAMP"),
+                bigquery.SchemaField("category_name", "STRING"),
+                bigquery.SchemaField("category_code", "INTEGER"),
+            ]
         )
 
-        for blob_name in file_list:
-            gcs_uri = f"gs://{bucket_name}/{blob_name}"
-            bq_hook.insert_job(
-                configuration={
-                    "load": {
-                        "sourceUris": [gcs_uri],
-                        "destinationTable": {
-                            "projectId": "de6-2ez",
-                            "datasetId": "bronze",
-                            "tableId": "musinsa_products"
-                        },
-                        "writeDisposition": job_config.write_disposition,
-                        "skipLeadingRows": job_config.skip_leading_rows,
-                        "sourceFormat": job_config.source_format,
-                        "allowQuotedNewlines": job_config.allow_quoted_newlines,
-                        "autodetect": job_config.autodetect
-                    }
-                },
-                project_id="de6-2ez"
-            )
-            print(f"[musinsa_products] Loaded file: {gcs_uri}")
+        # ✅ 한 번의 insert_job으로 모든 파일 적재
+        bq_hook.insert_job(
+            configuration={
+                "load": {
+                    "sourceUris": source_uris,
+                    "destinationTable": {
+                        "projectId": "de6-2ez",
+                        "datasetId": "bronze",
+                        "tableId": "musinsa_products"
+                    },
+                    "writeDisposition": job_config.write_disposition,
+                    "skipLeadingRows": job_config.skip_leading_rows,
+                    "sourceFormat": job_config.source_format,
+                    "allowQuotedNewlines": job_config.allow_quoted_newlines,
+                    "schema": {
+                        "fields": [field.to_api_repr() for field in job_config.schema]
+                    } 
+                }
+            },
+            project_id="de6-2ez"
+        )
+
+        print(f"[musinsa_products] ✅ Loaded {len(source_uris)} files to BigQuery")
 
     load_task = PythonOperator(
         task_id="load_csvs_to_bq",
         python_callable=load_csvs_to_bq,
         provide_context=True,
     )
-    
+
     trigger_silver_dag = TriggerDagRunOperator(
         task_id="trigger_silver_musinsa_dbt",
-        trigger_dag_id="silver_musinsa_product_dbt",  # dbt 실행 DAG ID
+        trigger_dag_id="silver_musinsa_product_dbt",
         wait_for_completion=False,
     )
 
