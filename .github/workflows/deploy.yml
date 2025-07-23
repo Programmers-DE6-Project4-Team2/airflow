@@ -79,8 +79,8 @@ jobs:
               git fetch origin
               git reset --hard origin/main
           
-          echo '🔧 Fixing log directory permissions...'
-          sudo chown -R airflow:airflow logs/ || true
+              echo '🔧 Fixing log directory permissions...'
+              sudo chown -R airflow:airflow logs/ || true
 
               echo '✅ Deployment completed successfully'
             "
