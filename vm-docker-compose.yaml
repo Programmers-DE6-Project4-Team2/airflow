@@ -58,7 +58,7 @@ x-airflow-common:
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY:-''}
-    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    AIRFLOW__CORE__DAGS_FOLDER: ${AIRFLOW__CORE__DAGS_FOLDER:-/opt/airflow/dags}
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES:-'true'}
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
@@ -88,7 +88,7 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/requirements.txt:/requirements.txt
     - ${AIRFLOW_PROJ_DIR:-.}/gcp:/opt/airflow/gcp
     - ${AIRFLOW_PROJ_DIR:-.}/dbt:/opt/airflow/dbt          # dbt 프로젝트
-    - /home/airflow/.dbt:/opt/airflow/.dbt                # dbt profiles
+    - ${AIRFLOW_PROJ_DIR:-.}/.dbt:/opt/airflow/.dbt      # dbt profiles
 
   user: "${AIRFLOW_UID:-50000}:0"
   networks:
@@ -141,12 +141,15 @@ services:
       - /bin/bash
       - -c
       - |
-        while true; do
+        # GCS 동기화를 백그라운드에서 실행
+        (while true; do
           echo "📥 Syncing DAGs from GCS..."
-          gsutil -m rsync -d -r gs://de6-ez2/dags /opt/airflow/dags
+          gsutil -m rsync -d -r gs://de6-ez2/dags /opt/airflow/dags || echo "GCS sync failed, continuing..."
           sleep 300
-        done &
-        exec airflow webserver
+        done) &
+        
+        # Airflow 웹서버 시작
+        airflow webserver
     ports:
       - "8080:8080"
     healthcheck:
@@ -167,12 +170,15 @@ services:
       - /bin/bash
       - -c
       - |
-        while true; do
+        # GCS 동기화를 백그라운드에서 실행
+        (while true; do
           echo "📥 Syncing DAGs from GCS..."
-          gsutil -m rsync -d -r gs://de6-ez2/dags /opt/airflow/dags
+          gsutil -m rsync -d -r gs://de6-ez2/dags /opt/airflow/dags || echo "GCS sync failed, continuing..."
           sleep 300
-        done &
-        exec airflow scheduler
+        done) &
+        
+        # Airflow 스케줄러 시작
+        airflow scheduler
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s
@@ -191,12 +197,15 @@ services:
       - /bin/bash
       - -c
       - |
-        while true; do
+        # GCS 동기화를 백그라운드에서 실행
+        (while true; do
           echo "📥 Syncing DAGs from GCS..."
-          gsutil -m rsync -d -r gs://de6-ez2/dags /opt/airflow/dags
+          gsutil -m rsync -d -r gs://de6-ez2/dags /opt/airflow/dags || echo "GCS sync failed, continuing..."
           sleep 300
-        done &
-        exec airflow celery worker
+        done) &
+        
+        # Airflow 워커 시작
+        airflow celery worker
     healthcheck:
       # yamllint disable rule:line-length
       test:
