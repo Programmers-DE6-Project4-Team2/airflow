@@ -79,9 +79,6 @@ jobs:
               git fetch origin
               git reset --hard origin/main
 
-              echo '🔧 Fixing log directory permissions...'
-              sudo chown -R 50000:0 logs/ || true
-
               echo '✅ Deployment completed successfully'
             "
             
