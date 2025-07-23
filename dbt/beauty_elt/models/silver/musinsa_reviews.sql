@@ -8,19 +8,19 @@ WITH ranked AS (
     SELECT
         *,
         ROW_NUMBER() OVER (
-            PARTITION BY no
+            PARTITION BY `no`
             ORDER BY scraped_at DESC
         ) AS row_num
     FROM {{ source('bronze', 'musinsa_reviews') }}
 )
 
 SELECT
-    CAST(no AS STRING) AS review_id,
+    CAST(`no` AS STRING) AS review_id,
     CAST(product_id AS STRING) AS product_id,
     category_code,
     category_name,
     type,
-    typeName
+    typeName,
     subType,
     content,
     commentCount,
@@ -43,7 +43,6 @@ SELECT
     goods_goodsSex,
     goods_goodsSexClassification,
     goods_showSoldOut,
-    
     userImageFile,
     goodsOption,
     commentReplyCount,
@@ -55,7 +54,6 @@ SELECT
     goodsThumbnailImageUrl,
     userId,
     encryptedUserId AS user_id,
-
     userProfileInfo_userNickName,
     userProfileInfo_userLevel,
     userProfileInfo_userOutYn,
@@ -67,7 +65,6 @@ SELECT
     userProfileInfo_skinType AS skin_type,
     userProfileInfo_skinTone AS skin_tone,
     userProfileInfo_skinWorry AS skin_worry,
-
     orderOptionNo,
     channelSource,
     channelSourceName,
@@ -79,7 +76,6 @@ SELECT
     reviewerWeeklyRanking AS weekly_ranking,
     reviewerMonthlyRanking AS monthly_ranking,
     showUserProfile,
-
     scraped_at,
     '무신사' AS platform
 
