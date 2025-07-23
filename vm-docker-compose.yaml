@@ -228,7 +228,19 @@ services:
 
   airflow-triggerer:
     <<: *airflow-common
-    command: triggerer
+    command:
+      - /bin/bash
+      - -c
+      - |
+        # GCS 동기화를 백그라운드에서 실행
+        (while true; do
+          echo "📥 Syncing DAGs from GCS..."
+          gsutil -m rsync -d -r gs://de6-ez2/dags /opt/airflow/dags || echo "GCS sync failed, continuing..."
+          sleep 300
+        done) &
+        
+        # Airflow 트리거러 시작
+        airflow triggerer
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
       interval: 30s
