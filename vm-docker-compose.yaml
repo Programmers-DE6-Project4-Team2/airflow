@@ -137,6 +137,7 @@ services:
 
   git-sync:
     image: k8s.gcr.io/git-sync/git-sync:v3.6.3
+    user: "${AIRFLOW_UID:-50000}:0"
     environment:
       GIT_SYNC_REPO: ${GIT_SYNC_REPO:-https://github.com/Programmers-DE6-Project4-Team2/airflow.git}
       GIT_SYNC_DEST: /git
