@@ -78,6 +78,5 @@ SELECT
     showUserProfile,
     scraped_at,
     '무신사' AS platform
-
 FROM ranked
 WHERE row_num = 1
