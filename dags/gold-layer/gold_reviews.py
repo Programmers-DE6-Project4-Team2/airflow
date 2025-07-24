@@ -10,7 +10,7 @@ default_args = {
 with DAG(
     dag_id="gold_reviews_dbt_run",
     start_date=days_ago(1),
-    schedule_interval=None,  # 수동 실행 또는 상위 DAG에서 Trigger
+    schedule_interval="0 15 * * *", # 매일 오후 3시 UTC → 한국 시간 기준 자정
     catchup=False,
     tags=["gold", "dbt", "review"]
 ) as dag:
